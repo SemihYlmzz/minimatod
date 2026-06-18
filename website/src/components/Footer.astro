@@ -1,0 +1,26 @@
+---
+import { SITE } from '../consts';
+import Logo from './Logo.astro';
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-white/10">
+  <div
+    class="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div class="flex items-center gap-2.5">
+      <Logo class="text-paper" size={22} />
+      <span class="font-semibold">{SITE.name}</span>
+    </div>
+
+    <nav class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+      <a href="/#features" class="hover:text-paper">Features</a>
+      <a href="/faq" class="hover:text-paper">FAQ</a>
+      <a href="/support" class="hover:text-paper">Support</a>
+      <a href="/privacy" class="hover:text-paper">Privacy</a>
+      <a href={SITE.webApp} class="hover:text-paper">Web app</a>
+    </nav>
+
+    <p class="text-sm text-muted">© {year} {SITE.name}</p>
+  </div>
+</footer>

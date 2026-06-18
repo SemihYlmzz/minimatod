@@ -1,0 +1,136 @@
+---
+import Base from '../layouts/Base.astro';
+import StoreButtons from '../components/StoreButtons.astro';
+import { SITE } from '../consts';
+
+const features = [
+  {
+    title: 'Infinite nesting',
+    body: 'Every note or task can hold more notes and tasks. Open any item to dive into its own space — as deep as your thinking goes.',
+  },
+  {
+    title: 'Notes & tasks together',
+    body: 'Capture a thought or track a to-do in the same place. Tasks check off; notes just stay. Each list keeps them tidy and separated.',
+  },
+  {
+    title: 'Rolled-up progress',
+    body: 'Every item shows how many tasks are done and still open inside it — so you see progress at a glance, without opening anything.',
+  },
+  {
+    title: 'Offline-first',
+    body: 'Everything is stored locally on your device and loads instantly. No account required to start.',
+  },
+  {
+    title: 'Truly minimal',
+    body: 'A calm, monochrome interface with nothing in your way. Just you, your notes, and your tasks.',
+  },
+  {
+    title: 'Everywhere',
+    body: 'One idea, three platforms — iOS, Android and the web. Use it on your phone or right in the browser.',
+  },
+];
+---
+
+<Base>
+  <!-- Hero -->
+  <section class="bg-grid border-b border-white/10">
+    <div class="mx-auto max-w-6xl px-5 py-24 text-center sm:py-32">
+      <div
+        class="mx-auto mb-10 flex h-48 w-48 items-center justify-center rounded-[36px] bg-ink-soft ring-1 ring-white/10 sm:h-60 sm:w-60"
+        role="img"
+        aria-label="Minimatod logo"
+      >
+        <!-- Tight viewBox so the mark fills the tile; padding stays small. -->
+        <svg
+          class="h-[80%] w-[80%] text-paper"
+          viewBox="13 8 74 74"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="12"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="28" y1="28" x2="28" y2="72"></line>
+          <line x1="72" y1="28" x2="72" y2="72"></line>
+          <polyline points="28,28 46,60 68,18"></polyline>
+        </svg>
+      </div>
+      <h1 class="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
+        Notes and tasks that nest forever.
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-lg text-muted sm:text-xl">
+        {SITE.name} is a minimalist notes &amp; to-do app where every item can hold
+        more notes and tasks — nested infinitely. Plan big, drill down endlessly.
+      </p>
+      <div class="mt-10">
+        <StoreButtons />
+      </div>
+      <p class="mt-5 text-sm text-muted">Free to start · No account needed</p>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="mx-auto max-w-6xl px-5 py-20 sm:py-28">
+    <h2 class="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+      Built for endless detail
+    </h2>
+    <p class="mx-auto mt-4 max-w-2xl text-center text-muted">
+      Outline a project, then keep going — sub-tasks, sub-notes, sub-everything.
+    </p>
+
+    <div class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        features.map((f) => (
+          <div class="rounded-2xl border border-white/10 bg-ink-soft p-6 transition hover:border-white/20">
+            <h3 class="text-lg font-semibold">{f.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-muted">{f.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="border-y border-white/10 bg-ink-soft/40">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:py-28">
+      <h2 class="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+        How it works
+      </h2>
+      <div class="mt-14 grid gap-10 sm:grid-cols-3">
+        <div class="text-center">
+          <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 font-bold">1</div>
+          <h3 class="font-semibold">Add a note or task</h3>
+          <p class="mt-2 text-sm text-muted">Type it, pick note or task, done. It lands at the top of your list.</p>
+        </div>
+        <div class="text-center">
+          <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 font-bold">2</div>
+          <h3 class="font-semibold">Tap to go deeper</h3>
+          <p class="mt-2 text-sm text-muted">Open any item to add notes and tasks inside it — repeat as far as you like.</p>
+        </div>
+        <div class="text-center">
+          <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 font-bold">3</div>
+          <h3 class="font-semibold">Watch it add up</h3>
+          <p class="mt-2 text-sm text-muted">Each item rolls up the tasks completed and remaining inside it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA (text only — buttons live in the hero) -->
+  <section class="mx-auto max-w-6xl px-5 py-24 text-center">
+    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">Start in seconds</h2>
+    <p class="mx-auto mt-4 max-w-xl text-muted">
+      Open it in your browser, or grab the app for your phone — scroll up to get
+      started.
+    </p>
+    <div class="mt-8">
+      <a
+        href={SITE.webApp}
+        class="inline-flex items-center gap-2.5 rounded-2xl bg-paper px-6 py-3.5 font-semibold text-ink transition hover:opacity-90"
+      >
+        Open web app
+      </a>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,26 @@
+---
+// Inline M-check mark. Uses currentColor, so set the color with a text-* class
+// (e.g. class="text-paper" for white on dark). Geometry mirrors the app logo.
+interface Props {
+  class?: string;
+  size?: number;
+}
+const { class: cls = 'text-paper', size = 26 } = Astro.props;
+---
+
+<svg
+  class={cls}
+  width={size}
+  height={size}
+  viewBox="0 0 100 100"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="12"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <line x1="28" y1="28" x2="28" y2="72"></line>
+  <line x1="72" y1="28" x2="72" y2="72"></line>
+  <polyline points="28,28 46,60 68,18"></polyline>
+</svg>

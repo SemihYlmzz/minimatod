@@ -1,0 +1,25 @@
+---
+import { SITE } from '../consts';
+import Logo from './Logo.astro';
+---
+
+<header class="sticky top-0 z-50 border-b border-white/10 bg-ink/80 backdrop-blur">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
+    <a href="/" class="flex items-center gap-2.5">
+      <Logo class="text-paper" size={26} />
+      <span class="text-lg font-bold tracking-tight">{SITE.name}</span>
+    </a>
+
+    <div class="flex items-center gap-6 text-sm text-muted">
+      <a href="/#features" class="hidden hover:text-paper sm:inline">Features</a>
+      <a href="/faq" class="hidden hover:text-paper sm:inline">FAQ</a>
+      <a href="/support" class="hidden hover:text-paper sm:inline">Support</a>
+      <a
+        href={SITE.webApp}
+        class="rounded-full bg-paper px-4 py-2 font-semibold text-ink transition hover:opacity-90"
+      >
+        Open web app
+      </a>
+    </div>
+  </nav>
+</header>

@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../consts';
+
+const lastUpdated = 'June 15, 2026';
+---
+
+<Base
+  title="Privacy Policy"
+  description="How Minimatod handles your data. Short version: your notes and tasks stay on your device."
+>
+  <section class="mx-auto max-w-3xl px-5 py-20 sm:py-28">
+    <h1 class="text-4xl font-extrabold tracking-tight">Privacy Policy</h1>
+    <p class="mt-3 text-sm text-muted">Last updated: {lastUpdated}</p>
+
+    <div class="mt-10 space-y-8 leading-relaxed text-muted">
+      <p class="rounded-2xl border border-white/10 bg-ink-soft p-5 text-paper">
+        <strong>In short:</strong> {SITE.name} stores your notes and tasks
+        locally on your device. We do not collect, sell, or share your personal
+        data, and you don’t need an account to use the app.
+      </p>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Information we collect</h2>
+        <p class="mt-3">
+          {SITE.name} does not require an account and does not collect personal
+          information. The notes and tasks you create are stored only on your
+          device (and, for the web app, locally in your browser). We have no
+          access to that content.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">How your data is stored</h2>
+        <p class="mt-3">
+          Your content is saved in a local database on your device. It stays
+          there until you delete it or remove the app. Uninstalling the app
+          deletes its local data.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Third-party services</h2>
+        <p class="mt-3">
+          The app itself does not send your content to third parties. If you
+          download {SITE.name} from the Apple App Store or Google Play, those
+          platforms may collect their own analytics (for example, downloads and
+          crashes) under their respective privacy policies.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Future features</h2>
+        <p class="mt-3">
+          We plan to add optional cloud sync and paid features in the future. If
+          you choose to enable them, some data (such as your notes and account
+          details) would be transmitted and stored to make those features work.
+          This policy will be updated before any such feature is released, and
+          those features will be opt-in.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Children’s privacy</h2>
+        <p class="mt-3">
+          {SITE.name} is not directed to children under 13 and does not knowingly
+          collect personal information from them.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Changes to this policy</h2>
+        <p class="mt-3">
+          We may update this policy from time to time. Changes will be posted on
+          this page with a new “last updated” date.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-paper">Contact</h2>
+        <p class="mt-3">
+          Questions about this policy? Email
+          <a
+            href={`mailto:${SITE.privacyEmail}`}
+            class="text-paper underline underline-offset-4">{SITE.privacyEmail}</a
+          >.
+        </p>
+      </div>
+    </div>
+  </section>
+</Base>
