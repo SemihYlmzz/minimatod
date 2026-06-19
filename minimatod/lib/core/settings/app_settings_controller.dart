@@ -18,6 +18,7 @@ class AppSettingsController extends ChangeNotifier {
 
   static const _kTheme = 'settings.theme';
   static const _kLanguage = 'settings.language';
+  static const _kOnboardingSeen = 'onboarding.seen';
 
   final SharedPreferences? _prefs;
 
@@ -66,5 +67,12 @@ class AppSettingsController extends ChangeNotifier {
     _language = choice;
     notifyListeners();
     await _prefs?.setString(_kLanguage, choice.name);
+  }
+
+  /// Whether the user has already seen the onboarding intro.
+  bool get hasSeenOnboarding => _prefs?.getBool(_kOnboardingSeen) ?? false;
+
+  Future<void> markOnboardingSeen() async {
+    await _prefs?.setBool(_kOnboardingSeen, true);
   }
 }

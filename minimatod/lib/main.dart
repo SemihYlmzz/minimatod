@@ -7,6 +7,10 @@ import 'package:minimatod/features/notes/data/notes_repository.dart';
 import 'package:minimatod/features/notes/presentation/notes_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Dev flag: set true to replay the onboarding on every launch. When false,
+/// onboarding shows once (until the user taps Start) then is remembered.
+const bool kShowOnboarding = false;
+
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
 
@@ -38,7 +42,11 @@ Future<void> main() async {
     debugPrint('Minimatod: initial load failed: $e\n$st');
   }
 
-  runApp(MinimatodApp(controller: controller, settings: settings));
+  runApp(MinimatodApp(
+    controller: controller,
+    settings: settings,
+    showOnboarding: kShowOnboarding,
+  ));
 
   // Always remove the splash, even if the load above failed.
   FlutterNativeSplash.remove();
