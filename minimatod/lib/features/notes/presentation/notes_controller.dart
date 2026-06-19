@@ -3,8 +3,6 @@ import 'package:uuid/uuid.dart';
 
 import '../data/note_model.dart';
 import '../data/notes_repository.dart';
-import '../data/tree_builder.dart';
-import '../data/tree_node.dart';
 
 /// Holds the note/task tree in memory and mediates all changes through the
 /// [NotesRepository]. UI listens via [ChangeNotifier].
@@ -19,9 +17,6 @@ class NotesController extends ChangeNotifier {
 
   /// Flat list of every item, unordered.
   List<Item> get items => List.unmodifiable(_items);
-
-  /// The items assembled into a nested forest, ordered for display.
-  List<TreeNode> get tree => buildTree(_items);
 
   /// Direct children of [parentId] (pass null for root level), ordered newest
   /// first by `sortOrder` then `createdAt`.
@@ -115,6 +110,54 @@ class NotesController extends ChangeNotifier {
   /// Deletes an item and its entire subtree.
   Future<void> deleteItem(String id) async {
     await _repository.delete(id);
+    await load();
+  }
+
+  /// The ancestor chain from the root down to (and including) [id], ordered
+  /// root → … → item. Returns an empty list if [id] is unknown.
+  List<Item> pathTo(String id) {
+    final byId = {for (final item in _items) item.id: item};
+    final chain = <Item>[];
+    var current = byId[id];
+    while (current != null) {
+      chain.add(current);
+      current = current.parentId == null ? null : byId[current.parentId];
+    }
+    return chain.reversed.toList();
+  }
+
+  /// Whether [candidateId] is [ofId] itself or any of its descendants. Used to
+  /// reject re-parenting an item into its own subtree (which would form a cycle).
+  bool isDescendant(String candidateId, String ofId) {
+    if (candidateId == ofId) return true;
+    final byParent = <String?, List<Item>>{};
+    for (final item in _items) {
+      byParent.putIfAbsent(item.parentId, () => []).add(item);
+    }
+    final queue = <String>[ofId];
+    while (queue.isNotEmpty) {
+      final parent = queue.removeAt(0);
+      for (final child in byParent[parent] ?? const <Item>[]) {
+        if (child.id == candidateId) return true;
+        queue.add(child.id);
+      }
+    }
+    return false;
+  }
+
+  /// Moves [item] (and its subtree) under [newParentId], placing it at the top
+  /// of the new level. No-op if it would create a cycle or is already there.
+  Future<void> reparent(Item item, String? newParentId) async {
+    if (newParentId == item.id) return;
+    if (newParentId == item.parentId) return;
+    if (newParentId != null && isDescendant(newParentId, item.id)) return;
+    await _repository.update(
+      item.copyWith(
+        parentId: newParentId,
+        sortOrder: _nextSortOrder(newParentId),
+        updatedAt: DateTime.now(),
+      ),
+    );
     await load();
   }
 

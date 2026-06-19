@@ -3,7 +3,6 @@ class AppInfo {
   const AppInfo._();
 
   static const String appName = 'Minimatod';
-  static const String version = '1.0.0';
 
   static const String website = 'https://minimatod.com';
   static const String privacyUrl = 'https://minimatod.com/privacy';

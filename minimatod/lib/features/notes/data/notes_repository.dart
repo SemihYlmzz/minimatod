@@ -1,3 +1,6 @@
+// Named params can't be private, so initializing formals don't apply to the
+// repository constructor; suppress that suggestion file-wide.
+// ignore_for_file: prefer_initializing_formals
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -27,6 +30,8 @@ abstract class NotesRepository {
 
 /// sqflite-backed [NotesRepository] using an adjacency-list table.
 class SqfliteNotesRepository implements NotesRepository {
+  // Named params can't be private (`this._x`), so initializing formals don't
+  // apply here — assign in the initializer list instead.
   SqfliteNotesRepository({
     Database? database,
     String databaseName = 'minimatod.db',

@@ -1,0 +1,54 @@
+{
+  "@@locale": "en",
+  "appTitle": "Minimatod",
+  "note": "Note",
+  "task": "Task",
+  "notes": "Notes",
+  "tasks": "Tasks",
+  "emptyTitle": "Nothing here yet",
+  "emptySubtitle": "Tap + to add your first item",
+  "writeNoteHint": "Write a note…",
+  "addTaskHint": "Add a task…",
+  "addNote": "New note",
+  "addTask": "New task",
+  "add": "Add",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "rename": "Rename",
+  "moveToTop": "Move to top",
+  "renameTitle": "Rename",
+  "deleteConfirmTitle": "Delete this item?",
+  "deleteConfirmBody": "This will also delete everything inside it.",
+  "searchHint": "Search notes & tasks",
+  "searchEmpty": "No matches",
+  "home": "Home",
+  "settings": "Settings",
+  "about": "About",
+  "appearance": "Appearance",
+  "theme": "Theme",
+  "language": "Language",
+  "themeAuto": "Auto",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeDarkBlue": "Dark Blue",
+  "languageSystem": "System",
+  "languageEnglish": "English",
+  "languageTurkish": "Türkçe",
+  "privacyPolicy": "Privacy Policy",
+  "contactSupport": "Contact support",
+  "website": "Website",
+  "openWebApp": "Open web app",
+  "versionLabel": "Version {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "couldNotOpen": "Could not open {url}",
+  "@couldNotOpen": {
+    "placeholders": {
+      "url": { "type": "String" }
+    }
+  }
+}

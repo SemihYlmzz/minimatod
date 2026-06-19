@@ -13,4 +13,9 @@ class Brand {
 
   /// Hex strings (used by icon/splash generator configs).
   static const String inkHex = '#0E0F12';
+
+  /// Dark Blue theme palette — deep navy surfaces with a light-blue accent.
+  static const Color navy = Color(0xFF0E1A2B);
+  static const Color navySurface = Color(0xFF13233A);
+  static const Color skyAccent = Color(0xFF5EA9FF);
 }
