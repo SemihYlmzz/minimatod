@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/format/created_at.dart';
 import '../../data/note_model.dart';
 
 /// A flat, tappable row for one item. Tapping opens the item's own screen;
@@ -108,19 +109,36 @@ class ItemRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    item.content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      height: 1.3,
-                      fontWeight: FontWeight.w500,
-                      color: isDone
-                          ? cs.onSurface.withValues(alpha: 0.4)
-                          : cs.onSurface.withValues(alpha: 0.92),
-                      decoration: isDone ? TextDecoration.lineThrough : null,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.content,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                          color: isDone
+                              ? cs.onSurface.withValues(alpha: 0.4)
+                              : cs.onSurface.withValues(alpha: 0.92),
+                          decoration:
+                              isDone ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        formatCreatedAt(
+                            item.createdAt, Localizations.localeOf(context)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 0.2,
+                          color: cs.onSurface.withValues(alpha: 0.38),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (hasTaskCounts) ...[

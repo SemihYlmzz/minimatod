@@ -5,6 +5,7 @@ import 'package:minimatod/core/database/db_init.dart';
 import 'package:minimatod/core/settings/app_settings_controller.dart';
 import 'package:minimatod/features/notes/data/notes_repository.dart';
 import 'package:minimatod/features/notes/presentation/notes_controller.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Dev flag: set true to replay the onboarding on every launch. When false,
@@ -17,6 +18,8 @@ Future<void> main() async {
   // Keep the native splash on screen until the first data load completes,
   // so there's no white flash before the list appears.
   FlutterNativeSplash.preserve(widgetsBinding: binding);
+
+  await initializeDateFormatting(); // locale-aware "created at" dates
 
   // Load persisted appearance / language preferences. Never let a plugin
   // failure (e.g. a misbuilt web bundle) brick startup — fall back to
