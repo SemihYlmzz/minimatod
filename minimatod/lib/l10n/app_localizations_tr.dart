@@ -134,4 +134,30 @@ class AppLocalizationsTr extends AppLocalizations {
   String couldNotOpen(String url) {
     return 'Açılamadı: $url';
   }
+
+  @override
+  String get noteBodyHint => 'Ayrıntı ekle…';
+
+  @override
+  String get emptyChildrenHint =>
+      'Henüz öğe yok — not için sola kaydır ya da + ile ekle.';
+
+  @override
+  String get tabItems => 'Öğeler';
+
+  @override
+  String get tabNote => 'Not';
+
+  @override
+  String get done => 'Bitti';
+
+  @override
+  String tasksLeft(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'görev kaldı',
+    );
+    return '$_temp0';
+  }
 }

@@ -45,11 +45,13 @@ Future<void> main() async {
     debugPrint('Minimatod: initial load failed: $e\n$st');
   }
 
-  runApp(MinimatodApp(
-    controller: controller,
-    settings: settings,
-    showOnboarding: kShowOnboarding,
-  ));
+  runApp(
+    MinimatodApp(
+      controller: controller,
+      settings: settings,
+      showOnboarding: kShowOnboarding,
+    ),
+  );
 
   // Always remove the splash, even if the load above failed.
   FlutterNativeSplash.remove();

@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/note_model.dart';
 
-/// A horizontally-scrollable breadcrumb trail shown under the AppBar on nested
-/// screens: `Home › … › current`. Tapping an ancestor crumb (or Home) asks the
-/// caller to navigate there via [onCrumbTap] (null id = Home/root).
+/// The AppBar title on a detail page, rendered as a compact, horizontally
+/// scrollable path: `⌂ Home › … › current`. Tapping an ancestor crumb (or Home)
+/// navigates there via [onCrumbTap] (null id = Home/root). Dragging an item onto
+/// a crumb re-parents it there via [onCrumbDrop] — the easy way to move an item
+/// back up to Home or any ancestor.
 ///
-/// Implements [PreferredSizeWidget] so it can be used as `AppBar.bottom`.
-class BreadcrumbBar extends StatelessWidget implements PreferredSizeWidget {
-  const BreadcrumbBar({
+/// It lives in the title slot (not its own row) so the path costs no extra
+/// vertical space.
+class PathTitle extends StatefulWidget {
+  const PathTitle({
     super.key,
     required this.path,
     required this.onCrumbTap,
@@ -27,7 +30,28 @@ class BreadcrumbBar extends StatelessWidget implements PreferredSizeWidget {
   final void Function(String? id, Item dragged) onCrumbDrop;
 
   @override
-  Size get preferredSize => const Size.fromHeight(44);
+  State<PathTitle> createState() => _PathTitleState();
+}
+
+class _PathTitleState extends State<PathTitle> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Keep the current crumb in view.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,17 +61,17 @@ class BreadcrumbBar extends StatelessWidget implements PreferredSizeWidget {
     final crumbs = <Widget>[
       _Crumb(
         label: l.home,
-        icon: Icons.home_outlined,
+        icon: Icons.home_rounded,
         isCurrent: false,
         targetId: null,
-        onTap: () => onCrumbTap(null),
-        onDrop: onCrumbDrop,
+        onTap: () => widget.onCrumbTap(null),
+        onDrop: widget.onCrumbDrop,
       ),
     ];
 
-    for (var i = 0; i < path.length; i++) {
-      final item = path[i];
-      final isCurrent = i == path.length - 1;
+    for (var i = 0; i < widget.path.length; i++) {
+      final item = widget.path[i];
+      final isCurrent = i == widget.path.length - 1;
       crumbs
         ..add(Icon(
           Icons.chevron_right_rounded,
@@ -58,22 +82,18 @@ class BreadcrumbBar extends StatelessWidget implements PreferredSizeWidget {
           label: item.content,
           isCurrent: isCurrent,
           targetId: item.id,
-          onTap: isCurrent ? null : () => onCrumbTap(item.id),
-          onDrop: onCrumbDrop,
+          onTap: isCurrent ? null : () => widget.onCrumbTap(item.id),
+          onDrop: widget.onCrumbDrop,
         ));
     }
 
     return SizedBox(
-      height: preferredSize.height,
+      height: 40,
       child: ListView(
+        controller: _scroll,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         children: [
-          for (final c in crumbs)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Center(child: c),
-            ),
+          for (final c in crumbs) Center(child: c),
         ],
       ),
     );
@@ -111,13 +131,11 @@ class _Crumb extends StatelessWidget {
 
   Widget _chip(BuildContext context, {required bool highlighted}) {
     final cs = Theme.of(context).colorScheme;
-    final color = isCurrent ? cs.onSurface : cs.onSurface.withValues(alpha: 0.6);
+    final color = isCurrent ? cs.onSurface : cs.onSurface.withValues(alpha: 0.55);
 
     final Color background;
     if (highlighted) {
       background = cs.primary.withValues(alpha: 0.22);
-    } else if (isCurrent) {
-      background = cs.surfaceContainerHighest.withValues(alpha: 0.5);
     } else {
       background = Colors.transparent;
     }
@@ -127,11 +145,11 @@ class _Crumb extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        constraints: const BoxConstraints(maxWidth: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        constraints: const BoxConstraints(maxWidth: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: highlighted
               ? Border.all(color: cs.primary.withValues(alpha: 0.6), width: 1.5)
               : null,
@@ -140,8 +158,8 @@ class _Crumb extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 5),
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 4),
             ],
             Flexible(
               child: Text(
@@ -149,8 +167,9 @@ class _Crumb extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: isCurrent ? 17 : 15,
                   fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                  letterSpacing: -0.3,
                   color: color,
                 ),
               ),

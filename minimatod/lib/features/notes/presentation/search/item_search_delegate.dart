@@ -16,7 +16,9 @@ class ItemSearchDelegate extends SearchDelegate<Item?> {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return const [];
     return controller.items
-        .where((i) => i.content.toLowerCase().contains(q))
+        .where((i) =>
+            i.content.toLowerCase().contains(q) ||
+            (i.body?.toLowerCase().contains(q) ?? false))
         .toList()
       ..sort((a, b) => a.content.toLowerCase().compareTo(b.content.toLowerCase()));
   }

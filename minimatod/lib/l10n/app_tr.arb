@@ -40,5 +40,11 @@
   "website": "Web sitesi",
   "openWebApp": "Web uygulamasını aç",
   "versionLabel": "Sürüm {version}",
-  "couldNotOpen": "Açılamadı: {url}"
+  "couldNotOpen": "Açılamadı: {url}",
+  "noteBodyHint": "Ayrıntı ekle…",
+  "emptyChildrenHint": "Henüz öğe yok — not için sola kaydır ya da + ile ekle.",
+  "tabItems": "Öğeler",
+  "tabNote": "Not",
+  "done": "Bitti",
+  "tasksLeft": "{count, plural, other{görev kaldı}}"
 }

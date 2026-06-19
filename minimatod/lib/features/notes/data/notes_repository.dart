@@ -46,7 +46,7 @@ class SqfliteNotesRepository implements NotesRepository {
   Future<Database> get _db async => _database ??= await _open();
 
   /// Bump this and add a branch in [_migrate] whenever the schema changes.
-  static const _schemaVersion = 2;
+  static const _schemaVersion = 3;
 
   Future<Database> _open() async {
     // On web the database lives in IndexedDB and is opened by name only —
@@ -74,6 +74,7 @@ class SqfliteNotesRepository implements NotesRepository {
         parent_id TEXT,
         type TEXT NOT NULL,
         content TEXT NOT NULL,
+        body TEXT,
         is_done INTEGER NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -95,6 +96,10 @@ class SqfliteNotesRepository implements NotesRepository {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_items_deleted ON $_table(deleted_at)',
       );
+    }
+    if (oldVersion < 3) {
+      // v3: long-form note body.
+      await db.execute('ALTER TABLE $_table ADD COLUMN body TEXT');
     }
   }
 

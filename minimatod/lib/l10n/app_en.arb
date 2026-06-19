@@ -50,5 +50,16 @@
     "placeholders": {
       "url": { "type": "String" }
     }
+  },
+  "noteBodyHint": "Add details…",
+  "emptyChildrenHint": "No items yet — swipe left for the note, or tap + to add one.",
+  "tabItems": "Items",
+  "tabNote": "Note",
+  "done": "Done",
+  "tasksLeft": "{count, plural, =1{task left} other{tasks left}}",
+  "@tasksLeft": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
   }
 }

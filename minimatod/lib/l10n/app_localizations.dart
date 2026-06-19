@@ -343,6 +343,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not open {url}'**
   String couldNotOpen(String url);
+
+  /// No description provided for @noteBodyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add details…'**
+  String get noteBodyHint;
+
+  /// No description provided for @emptyChildrenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No items yet — swipe left for the note, or tap + to add one.'**
+  String get emptyChildrenHint;
+
+  /// No description provided for @tabItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get tabItems;
+
+  /// No description provided for @tabNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get tabNote;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @tasksLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{task left} other{tasks left}}'**
+  String tasksLeft(int count);
 }
 
 class _AppLocalizationsDelegate

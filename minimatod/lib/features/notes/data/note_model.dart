@@ -14,6 +14,7 @@ class Item {
     required this.createdAt,
     required this.updatedAt,
     this.parentId,
+    this.body,
     this.isDone = false,
     this.sortOrder = 0,
     this.deletedAt,
@@ -28,8 +29,14 @@ class Item {
   /// Whether this item is a note or a task.
   final ItemType type;
 
-  /// The text content of the note/task.
+  /// The title/text of the note/task (single line, shown in lists).
   final String content;
+
+  /// The long-form note body (the document shown on the Note page). Null/empty
+  /// when there's no body. Plain text/markdown for now; will evolve into a
+  /// structured rich-text format for the advanced editor — an additive change
+  /// that won't affect the rest of the schema.
+  final String? body;
 
   /// Completion flag. Only meaningful when [type] is [ItemType.task].
   final bool isDone;
@@ -51,6 +58,7 @@ class Item {
     Object? parentId = _sentinel,
     ItemType? type,
     String? content,
+    Object? body = _sentinel,
     bool? isDone,
     int? sortOrder,
     DateTime? createdAt,
@@ -62,6 +70,7 @@ class Item {
       parentId: parentId == _sentinel ? this.parentId : parentId as String?,
       type: type ?? this.type,
       content: content ?? this.content,
+      body: body == _sentinel ? this.body : body as String?,
       isDone: isDone ?? this.isDone,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
@@ -78,6 +87,7 @@ class Item {
       'parent_id': parentId,
       'type': type.name,
       'content': content,
+      'body': body,
       'is_done': isDone ? 1 : 0,
       'sort_order': sortOrder,
       'created_at': createdAt.toIso8601String(),
@@ -93,6 +103,7 @@ class Item {
       parentId: map['parent_id'] as String?,
       type: ItemType.values.byName(map['type']! as String),
       content: map['content']! as String,
+      body: map['body'] as String?,
       isDone: (map['is_done']! as int) != 0,
       sortOrder: map['sort_order']! as int,
       createdAt: DateTime.parse(map['created_at']! as String),
@@ -110,6 +121,7 @@ class Item {
         other.parentId == parentId &&
         other.type == type &&
         other.content == content &&
+        other.body == body &&
         other.isDone == isDone &&
         other.sortOrder == sortOrder &&
         other.createdAt == createdAt &&
@@ -123,6 +135,7 @@ class Item {
         parentId,
         type,
         content,
+        body,
         isDone,
         sortOrder,
         createdAt,

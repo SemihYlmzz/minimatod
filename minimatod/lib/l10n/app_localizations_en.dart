@@ -134,4 +134,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String couldNotOpen(String url) {
     return 'Could not open $url';
   }
+
+  @override
+  String get noteBodyHint => 'Add details…';
+
+  @override
+  String get emptyChildrenHint =>
+      'No items yet — swipe left for the note, or tap + to add one.';
+
+  @override
+  String get tabItems => 'Items';
+
+  @override
+  String get tabNote => 'Note';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String tasksLeft(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'tasks left',
+      one: 'task left',
+    );
+    return '$_temp0';
+  }
 }

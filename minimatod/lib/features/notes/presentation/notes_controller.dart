@@ -97,6 +97,20 @@ class NotesController extends ChangeNotifier {
     await load();
   }
 
+  /// Saves the long-form note [body] for the item with [id]. Looks up the live
+  /// item so a stale snapshot can't clobber other fields. No-op if unchanged or
+  /// the item is gone.
+  Future<void> setBody(String id, String body) async {
+    final index = _items.indexWhere((i) => i.id == id);
+    if (index == -1) return;
+    final item = _items[index];
+    if ((item.body ?? '') == body) return;
+    await _repository.update(
+      item.copyWith(body: body, updatedAt: DateTime.now()),
+    );
+    await load();
+  }
+
   /// Edits the text content of an existing item.
   Future<void> editContent(Item item, String content) async {
     final trimmed = content.trim();
