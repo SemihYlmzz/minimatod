@@ -4,39 +4,53 @@ import '../../../../l10n/app_localizations.dart';
 import '../../data/note_model.dart';
 import '../notes_controller.dart';
 
+/// Case-insensitive match over every active item's title and note body, sorted
+/// by title. Shared by the phone search delegate and the wide inline search.
+List<Item> searchItems(NotesController controller, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  return controller.items
+      .where(
+        (i) =>
+            i.content.toLowerCase().contains(q) ||
+            (i.body?.toLowerCase().contains(q) ?? false),
+      )
+      .toList()
+    ..sort(
+      (a, b) => a.content.toLowerCase().compareTo(b.content.toLowerCase()),
+    );
+}
+
 /// Full-text search over every active item. Returns the selected [Item] (via
 /// `close`) so the caller can navigate to it; returns null if dismissed.
 class ItemSearchDelegate extends SearchDelegate<Item?> {
-  ItemSearchDelegate(this.controller, this._l) : super(searchFieldLabel: _l.searchHint);
+  ItemSearchDelegate(this.controller, this._l)
+    : super(searchFieldLabel: _l.searchHint);
 
   final NotesController controller;
   final AppLocalizations _l;
 
-  List<Item> _matches() {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return const [];
-    return controller.items
-        .where((i) =>
-            i.content.toLowerCase().contains(q) ||
-            (i.body?.toLowerCase().contains(q) ?? false))
-        .toList()
-      ..sort((a, b) => a.content.toLowerCase().compareTo(b.content.toLowerCase()));
-  }
+  // Smaller, lighter field text than the default title-sized search style.
+  @override
+  TextStyle? get searchFieldStyle =>
+      const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w400);
+
+  List<Item> _matches() => searchItems(controller, query);
 
   @override
   List<Widget> buildActions(BuildContext context) => [
-        if (query.isNotEmpty)
-          IconButton(
-            icon: const Icon(Icons.clear_rounded),
-            onPressed: () => query = '',
-          ),
-      ];
+    if (query.isNotEmpty)
+      IconButton(
+        icon: const Icon(Icons.clear_rounded),
+        onPressed: () => query = '',
+      ),
+  ];
 
   @override
   Widget buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: () => close(context, null),
-      );
+    icon: const Icon(Icons.arrow_back_rounded),
+    onPressed: () => close(context, null),
+  );
 
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
@@ -73,12 +87,16 @@ class ItemSearchDelegate extends SearchDelegate<Item?> {
           leading: Icon(
             isTask
                 ? (item.isDone
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded)
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded)
                 : Icons.sticky_note_2_outlined,
             color: isTask ? cs.primary : cs.tertiary,
           ),
-          title: Text(item.content, maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: Text(
+            item.content,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           subtitle: trail == null
               ? null
               : Text(trail, maxLines: 1, overflow: TextOverflow.ellipsis),

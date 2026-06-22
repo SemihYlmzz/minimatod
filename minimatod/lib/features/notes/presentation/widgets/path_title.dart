@@ -73,18 +73,22 @@ class _PathTitleState extends State<PathTitle> {
       final item = widget.path[i];
       final isCurrent = i == widget.path.length - 1;
       crumbs
-        ..add(Icon(
-          Icons.chevron_right_rounded,
-          size: 18,
-          color: cs.onSurface.withValues(alpha: 0.3),
-        ))
-        ..add(_Crumb(
-          label: item.content,
-          isCurrent: isCurrent,
-          targetId: item.id,
-          onTap: isCurrent ? null : () => widget.onCrumbTap(item.id),
-          onDrop: widget.onCrumbDrop,
-        ));
+        ..add(
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: cs.onSurface.withValues(alpha: 0.3),
+          ),
+        )
+        ..add(
+          _Crumb(
+            label: item.content,
+            isCurrent: isCurrent,
+            targetId: item.id,
+            onTap: isCurrent ? null : () => widget.onCrumbTap(item.id),
+            onDrop: widget.onCrumbDrop,
+          ),
+        );
     }
 
     return SizedBox(
@@ -92,9 +96,7 @@ class _PathTitleState extends State<PathTitle> {
       child: ListView(
         controller: _scroll,
         scrollDirection: Axis.horizontal,
-        children: [
-          for (final c in crumbs) Center(child: c),
-        ],
+        children: [for (final c in crumbs) Center(child: c)],
       ),
     );
   }
@@ -131,7 +133,9 @@ class _Crumb extends StatelessWidget {
 
   Widget _chip(BuildContext context, {required bool highlighted}) {
     final cs = Theme.of(context).colorScheme;
-    final color = isCurrent ? cs.onSurface : cs.onSurface.withValues(alpha: 0.55);
+    final color = isCurrent
+        ? cs.onSurface
+        : cs.onSurface.withValues(alpha: 0.55);
 
     final Color background;
     if (highlighted) {

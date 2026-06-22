@@ -9,11 +9,7 @@ import '../../../../l10n/app_localizations.dart';
 /// Implements [PreferredSizeWidget] so it can be passed straight to
 /// `AppBar.bottom`.
 class DetailTabs extends StatelessWidget implements PreferredSizeWidget {
-  const DetailTabs({
-    super.key,
-    required this.index,
-    required this.onTap,
-  });
+  const DetailTabs({super.key, required this.index, required this.onTap});
 
   final int index;
   final ValueChanged<int> onTap;
@@ -49,8 +45,9 @@ class DetailTabs extends StatelessWidget implements PreferredSizeWidget {
                     AnimatedAlign(
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.easeOutCubic,
-                      alignment:
-                          index == 0 ? Alignment.centerLeft : Alignment.centerRight,
+                      alignment: index == 0
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
                       child: Container(
                         width: segWidth,
                         height: double.infinity,

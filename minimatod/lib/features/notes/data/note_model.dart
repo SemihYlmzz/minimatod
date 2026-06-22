@@ -15,6 +15,9 @@ class Item {
     required this.updatedAt,
     this.parentId,
     this.body,
+    this.icon,
+    this.color,
+    this.reminderAt,
     this.isDone = false,
     this.sortOrder = 0,
     this.deletedAt,
@@ -38,6 +41,18 @@ class Item {
   /// that won't affect the rest of the schema.
   final String? body;
 
+  /// Optional icon key for this item (see `item_visuals.dart`). Null falls back
+  /// to the default type icon. Stored as a stable string so it survives sync and
+  /// icon-set changes.
+  final String? icon;
+
+  /// Optional accent colour as an ARGB int. Null falls back to the type accent.
+  final int? color;
+
+  /// Optional reminder time. Persisted now; notifications wire up in a later
+  /// pass. Null means no reminder.
+  final DateTime? reminderAt;
+
   /// Completion flag. Only meaningful when [type] is [ItemType.task].
   final bool isDone;
 
@@ -59,6 +74,9 @@ class Item {
     ItemType? type,
     String? content,
     Object? body = _sentinel,
+    Object? icon = _sentinel,
+    Object? color = _sentinel,
+    Object? reminderAt = _sentinel,
     bool? isDone,
     int? sortOrder,
     DateTime? createdAt,
@@ -71,12 +89,18 @@ class Item {
       type: type ?? this.type,
       content: content ?? this.content,
       body: body == _sentinel ? this.body : body as String?,
+      icon: icon == _sentinel ? this.icon : icon as String?,
+      color: color == _sentinel ? this.color : color as int?,
+      reminderAt: reminderAt == _sentinel
+          ? this.reminderAt
+          : reminderAt as DateTime?,
       isDone: isDone ?? this.isDone,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt:
-          deletedAt == _sentinel ? this.deletedAt : deletedAt as DateTime?,
+      deletedAt: deletedAt == _sentinel
+          ? this.deletedAt
+          : deletedAt as DateTime?,
     );
   }
 
@@ -88,6 +112,9 @@ class Item {
       'type': type.name,
       'content': content,
       'body': body,
+      'icon': icon,
+      'color': color,
+      'reminder_at': reminderAt?.toIso8601String(),
       'is_done': isDone ? 1 : 0,
       'sort_order': sortOrder,
       'created_at': createdAt.toIso8601String(),
@@ -104,6 +131,11 @@ class Item {
       type: ItemType.values.byName(map['type']! as String),
       content: map['content']! as String,
       body: map['body'] as String?,
+      icon: map['icon'] as String?,
+      color: map['color'] as int?,
+      reminderAt: map['reminder_at'] == null
+          ? null
+          : DateTime.parse(map['reminder_at']! as String),
       isDone: (map['is_done']! as int) != 0,
       sortOrder: map['sort_order']! as int,
       createdAt: DateTime.parse(map['created_at']! as String),
@@ -122,6 +154,9 @@ class Item {
         other.type == type &&
         other.content == content &&
         other.body == body &&
+        other.icon == icon &&
+        other.color == color &&
+        other.reminderAt == reminderAt &&
         other.isDone == isDone &&
         other.sortOrder == sortOrder &&
         other.createdAt == createdAt &&
@@ -131,17 +166,20 @@ class Item {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        parentId,
-        type,
-        content,
-        body,
-        isDone,
-        sortOrder,
-        createdAt,
-        updatedAt,
-        deletedAt,
-      );
+    id,
+    parentId,
+    type,
+    content,
+    body,
+    icon,
+    color,
+    reminderAt,
+    isDone,
+    sortOrder,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
 }
 
 /// Sentinel used by [Item.copyWith] to distinguish "leave parentId unchanged"

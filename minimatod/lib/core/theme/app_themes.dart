@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../brand/brand.dart';
@@ -51,7 +52,21 @@ class AppThemes {
   );
 
   static ThemeData _build(ColorScheme scheme) {
-    return ThemeData(colorScheme: scheme, useMaterial3: true);
+    return ThemeData(
+      colorScheme: scheme,
+      useMaterial3: true,
+      // iOS-style slide + interactive edge swipe-back on every platform
+      // (including Android), so pushed pages can be swiped back.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
+      ),
+    );
   }
 
   /// Maps the chosen option to the MaterialApp theme triple. For the explicit

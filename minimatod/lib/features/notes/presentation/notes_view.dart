@@ -1,11 +1,14 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/navigation/route_stack.dart';
+import '../../../core/responsive/breakpoints.dart';
 import '../../../core/settings/app_settings_controller.dart';
 import '../../../core/widgets/dismiss_keyboard.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../settings/presentation/settings_view.dart';
 import '../data/note_model.dart';
-import 'create_item_page.dart';
+import 'create_item_sheet.dart';
 import 'notes_controller.dart';
 import 'search/item_search_delegate.dart';
 import 'widgets/add_bar.dart';
@@ -14,7 +17,9 @@ import 'widgets/empty_state.dart';
 import 'widgets/item_actions_sheet.dart';
 import 'widgets/item_row.dart';
 import 'widgets/note_page.dart';
+import 'widgets/reminder_help.dart';
 import 'widgets/path_title.dart';
+import 'widgets/reorderable_item.dart';
 import 'widgets/section_divider.dart';
 
 /// A single level of the note/task tree.
@@ -49,6 +54,14 @@ class _NotesViewState extends State<NotesView> {
   // Focus of the note editor — drives the "Done" button in the AppBar.
   final FocusNode _noteFocus = FocusNode();
 
+  // True while a row is being dragged — turns the add button into a trash zone.
+  bool _dragging = false;
+
+  Future<void> _confirmDeleteItem(Item item) async {
+    final ok = await confirmDelete(context);
+    if (ok) await widget.controller.deleteItem(item.id);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,32 +85,18 @@ class _NotesViewState extends State<NotesView> {
 
   /// Opens the create page; on return, adds the item under the current level.
   Future<void> _openCreate() async {
-    final result = await Navigator.of(context).push<CreateItemResult>(
-      MaterialPageRoute<CreateItemResult>(
-        builder: (_) => const CreateItemPage(),
-      ),
+    final result = await showCreateItemSheet(
+      context,
+      notifications: widget.controller.notifications,
     );
     if (result == null) return;
     await widget.controller.addItem(
       content: result.content,
       type: result.type,
+      icon: result.icon,
+      color: result.color,
+      reminderAt: result.reminderAt,
       parentId: widget.parent?.id,
-    );
-  }
-
-  void _openItem(Item item) {
-    // Drop focus first so the keyboard doesn't reference this route's widgets
-    // across the navigation transition.
-    FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        settings: RouteSettings(arguments: item.id),
-        builder: (_) => NotesView(
-          controller: widget.controller,
-          settings: widget.settings,
-          parent: item,
-        ),
-      ),
     );
   }
 
@@ -107,7 +106,7 @@ class _NotesViewState extends State<NotesView> {
   void _navigateToItem(Item item) {
     FocusManager.instance.primaryFocus?.unfocus();
     final nav = Navigator.of(context);
-    nav.popUntil((r) => r.isFirst);
+    routeStackObserver.jumpTo(nav, (r) => r.isFirst);
     for (final ancestor in widget.controller.pathTo(item.id)) {
       nav.push(
         MaterialPageRoute<void>(
@@ -136,12 +135,13 @@ class _NotesViewState extends State<NotesView> {
 
   void _onCrumbTap(String? id) {
     FocusManager.instance.primaryFocus?.unfocus();
-    final nav = Navigator.of(context);
-    if (id == null) {
-      nav.popUntil((r) => r.isFirst);
-    } else {
-      nav.popUntil((r) => r.isFirst || r.settings.arguments == id);
-    }
+    // Remove the in-between pages instantly so their container-transform reverse
+    // animations don't overlap into a broken-looking blur.
+    routeStackObserver.jumpTo(
+      Navigator.of(context),
+      (r) => id == null ? r.isFirst : (r.isFirst || r.settings.arguments == id),
+      animate: true,
+    );
   }
 
   /// Dropping a dragged item onto a path crumb re-parents it there (id null =
@@ -151,19 +151,35 @@ class _NotesViewState extends State<NotesView> {
   }
 
   Future<void> _onItemMenu(Item item, {bool isCurrent = false}) async {
-    final action = await showItemActionsSheet(context, item);
+    // Use the live item so the sheet reflects the current values, not the stale
+    // snapshot from when this page was opened.
+    final live = widget.controller.items.firstWhere(
+      (i) => i.id == item.id,
+      orElse: () => item,
+    );
+    final action = await showItemActionsSheet(context, live);
     if (action == null || !mounted) return;
     switch (action) {
-      case ItemAction.rename:
-        final name = await showRenameDialog(context, item.content);
-        if (name != null && name.isNotEmpty) {
-          await widget.controller.editContent(item, name);
-        }
+      case ItemAction.edit:
+        final result = await showCreateItemSheet(
+          context,
+          initial: live,
+          notifications: widget.controller.notifications,
+        );
+        if (result == null) return;
+        await widget.controller.updateItemMeta(
+          live,
+          content: result.content,
+          type: result.type,
+          icon: result.icon,
+          color: result.color,
+          reminderAt: result.reminderAt,
+        );
       case ItemAction.delete:
         if (!mounted) return;
         final ok = await confirmDelete(context);
         if (!ok) return;
-        await widget.controller.deleteItem(item.id);
+        await widget.controller.deleteItem(live.id);
         if (isCurrent && mounted) Navigator.of(context).pop();
     }
   }
@@ -177,14 +193,19 @@ class _NotesViewState extends State<NotesView> {
     final first = _notesFirst ? notes : tasks;
     final second = _notesFirst ? tasks : notes;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-      children: [
-        for (final item in first) _row(item),
-        if (first.isNotEmpty && second.isNotEmpty)
-          SectionDivider(label: _notesFirst ? l.tasks : l.notes),
-        for (final item in second) _row(item),
-      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+          children: [
+            for (final item in first) _row(item, first),
+            if (first.isNotEmpty && second.isNotEmpty)
+              SectionDivider(label: _notesFirst ? l.tasks : l.notes),
+            for (final item in second) _row(item, second),
+          ],
+        ),
+      ),
     );
   }
 
@@ -200,8 +221,11 @@ class _NotesViewState extends State<NotesView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_rounded,
-                  size: 30, color: cs.onSurface.withValues(alpha: 0.25)),
+              Icon(
+                Icons.add_rounded,
+                size: 30,
+                color: cs.onSurface.withValues(alpha: 0.25),
+              ),
               const SizedBox(height: 8),
               Text(
                 l.emptyChildrenHint,
@@ -241,26 +265,58 @@ class _NotesViewState extends State<NotesView> {
     );
   }
 
-  Widget _row(Item item) {
+  Widget _row(Item item, List<Item> group) {
     final counts = widget.controller.descendantTaskCounts(item.id);
-    return ItemRow(
+    final cs = Theme.of(context).colorScheme;
+    return ReorderableItem(
+      controller: widget.controller,
       item: item,
-      completedTasks: counts.completed,
-      uncompletedTasks: counts.uncompleted,
-      canAcceptDrop: (dragged) =>
-          dragged.id != item.id &&
-          !widget.controller.isDescendant(item.id, dragged.id),
-      onAcceptDrop: (dragged) => widget.controller.reparent(dragged, item.id),
-      onTap: () => _openItem(item),
-      onToggleDone: () => widget.controller.toggleDone(item),
-      onRename: () async {
-        final name = await showRenameDialog(context, item.content);
-        if (name != null && name.isNotEmpty) {
-          await widget.controller.editContent(item, name);
-        }
-      },
-      onConfirmDelete: () => confirmDelete(context),
-      onDelete: () => widget.controller.deleteItem(item.id),
+      parentId: widget.parent?.id,
+      group: group,
+      // Tapping morphs the tile into its detail page (container transform); the
+      // opened page adds an edge swipe-back (see [_EdgeSwipeBack]).
+      rowBuilder: (nestHighlight) => OpenContainer(
+        transitionType: ContainerTransitionType.fadeThrough,
+        transitionDuration: const Duration(milliseconds: 360),
+        closedElevation: 0,
+        openElevation: 0,
+        closedColor: Colors.transparent,
+        openColor: cs.surface,
+        middleColor: cs.surface,
+        closedShape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        routeSettings: RouteSettings(arguments: item.id),
+        closedBuilder: (context, open) => ItemRow(
+          item: item,
+          completedTasks: counts.completed,
+          uncompletedTasks: counts.uncompleted,
+          nestHighlight: nestHighlight,
+          reminderState: reminderBadgeState(widget.controller),
+          onReminderWarningTap: () =>
+              handleReminderWarningTap(context, widget.controller),
+          onDragStarted: () => setState(() => _dragging = true),
+          onDragEnded: () => setState(() => _dragging = false),
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            open();
+          },
+          onToggleDone: () => widget.controller.toggleDone(item),
+          onRename: () async {
+            final name = await showRenameDialog(context, item.content);
+            if (name != null && name.isNotEmpty) {
+              await widget.controller.editContent(item, name);
+            }
+          },
+          onConfirmDelete: () => confirmDelete(context),
+          onDelete: () => widget.controller.deleteItem(item.id),
+        ),
+        openBuilder: (context, close) => NotesView(
+          controller: widget.controller,
+          settings: widget.settings,
+          parent: item,
+        ),
+      ),
     );
   }
 
@@ -271,7 +327,7 @@ class _NotesViewState extends State<NotesView> {
     final l = AppLocalizations.of(context);
     final isRoot = widget.parent == null;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
         // Root → app name (centred). Detail → the scrollable path, which also
@@ -356,8 +412,65 @@ class _NotesViewState extends State<NotesView> {
         ),
       ),
       // The add button belongs to the list page; hide it on the note page.
-      bottomNavigationBar:
-          (isRoot || _page == 0) ? AddBar(onAdd: _openCreate) : null,
+      bottomNavigationBar: (isRoot || _page == 0)
+          ? AddBar(
+              onAdd: _openCreate,
+              dragActive: _dragging,
+              onDeleteDrop: _confirmDeleteItem,
+            )
+          : null,
+    );
+
+    // Root has nothing to pop to; detail pages get a left-edge swipe-back that
+    // pops with the container transform reversing.
+    if (isRoot) return scaffold;
+    return _EdgeSwipeBack(
+      onBack: () => Navigator.maybePop(context),
+      child: scaffold,
+    );
+  }
+}
+
+/// Wraps a page with a thin left-edge horizontal-drag detector that invokes
+/// [onBack] on a rightward swipe — restoring "swipe to go back" on a route
+/// (like [OpenContainer]'s) that has no built-in back gesture. The page doesn't
+/// track the finger; the gesture simply triggers the route's normal reverse
+/// (here, the container-transform morph).
+class _EdgeSwipeBack extends StatefulWidget {
+  const _EdgeSwipeBack({required this.child, required this.onBack});
+
+  final Widget child;
+  final VoidCallback onBack;
+
+  @override
+  State<_EdgeSwipeBack> createState() => _EdgeSwipeBackState();
+}
+
+class _EdgeSwipeBackState extends State<_EdgeSwipeBack> {
+  double _dx = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 22,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (_) => _dx = 0,
+            onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
+            onHorizontalDragEnd: (d) {
+              final flung = (d.primaryVelocity ?? 0) > 250;
+              if (flung || _dx > 60) widget.onBack();
+              _dx = 0;
+            },
+          ),
+        ),
+      ],
     );
   }
 }

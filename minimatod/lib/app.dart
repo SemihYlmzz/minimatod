@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:minimatod/core/navigation/route_stack.dart';
 import 'package:minimatod/core/settings/app_settings_controller.dart';
 import 'package:minimatod/core/theme/app_themes.dart';
+import 'package:minimatod/features/notes/presentation/app_shell.dart';
 import 'package:minimatod/features/notes/presentation/notes_controller.dart';
-import 'package:minimatod/features/notes/presentation/notes_view.dart';
 import 'package:minimatod/features/onboarding/presentation/onboarding_gate.dart';
 import 'package:minimatod/l10n/app_localizations.dart';
 
@@ -24,9 +25,26 @@ class MinimatodApp extends StatefulWidget {
   State<MinimatodApp> createState() => _MinimatodAppState();
 }
 
-class _MinimatodAppState extends State<MinimatodApp> {
+class _MinimatodAppState extends State<MinimatodApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The user may have changed notification permission in OS/browser settings
+    // while away — re-check on resume so reminder badges self-correct.
+    if (state == AppLifecycleState.resumed) {
+      widget.controller.refreshReminderPermission();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.dispose();
     widget.settings.dispose();
     super.dispose();
@@ -47,10 +65,11 @@ class _MinimatodAppState extends State<MinimatodApp> {
           locale: widget.settings.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          navigatorObservers: [routeStackObserver],
           home: OnboardingGate(
             settings: widget.settings,
             forceShow: widget.showOnboarding,
-            child: NotesView(
+            child: AppShell(
               controller: widget.controller,
               settings: widget.settings,
             ),

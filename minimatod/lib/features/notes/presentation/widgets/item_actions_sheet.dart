@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/note_model.dart';
 
-/// The per-item actions surfaced from the trailing ⋯ button.
-enum ItemAction { rename, delete }
+/// The per-item actions surfaced from the trailing ⋯ button. Editing (title,
+/// type, icon, colour, reminder) all happens in the composer sheet, so a single
+/// "Edit" entry covers what used to be rename + convert.
+enum ItemAction { edit, delete }
 
 /// Shows the long-press / overflow actions sheet for [item]. Returns the chosen
 /// [ItemAction], or null if dismissed.
@@ -21,9 +23,9 @@ Future<ItemAction?> showItemActionsSheet(BuildContext context, Item item) {
           mainAxisSize: MainAxisSize.min,
           children: [
             _ActionTile(
-              icon: Icons.edit_outlined,
-              label: l.rename,
-              onTap: () => Navigator.of(context).pop(ItemAction.rename),
+              icon: Icons.tune_rounded,
+              label: l.edit,
+              onTap: () => Navigator.of(context).pop(ItemAction.edit),
             ),
             _ActionTile(
               icon: Icons.delete_outline_rounded,
@@ -63,8 +65,7 @@ Future<String?> showRenameDialog(BuildContext context, String initial) {
             child: Text(l.cancel),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
             child: Text(l.save),
           ),
         ],

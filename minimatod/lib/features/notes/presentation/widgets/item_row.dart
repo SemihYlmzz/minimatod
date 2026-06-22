@@ -3,31 +3,38 @@ import 'package:flutter/material.dart';
 import '../../../../core/format/created_at.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/note_model.dart';
+import 'item_visuals.dart';
+import 'reminder_help.dart';
 
 /// A flat, tappable row for one item. Tapping opens the item's own screen;
-/// long-press starts a drag to nest it inside another item (carried centered
-/// under the finger); swipe right to rename, swipe left to delete. The badges
-/// show how many descendant **tasks** are completed / uncompleted.
+/// long-press starts a drag (to nest or reorder — the drop target decides);
+/// swipe right to rename, swipe left to delete. The subtitle shows how many
+/// descendant tasks are left.
+///
+/// Drop handling lives in the surrounding `ReorderableItem`; this widget is only
+/// the drag source + tile. [nestHighlight] draws the accent border when it's the
+/// hovered nest target.
 class ItemRow extends StatelessWidget {
   const ItemRow({
     super.key,
     required this.item,
     required this.completedTasks,
     required this.uncompletedTasks,
-    required this.canAcceptDrop,
-    required this.onAcceptDrop,
     required this.onTap,
     required this.onToggleDone,
     required this.onRename,
     required this.onConfirmDelete,
     required this.onDelete,
+    this.nestHighlight = false,
+    this.reminderState = ReminderBadgeState.ok,
+    this.onReminderWarningTap,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   final Item item;
   final int completedTasks;
   final int uncompletedTasks;
-  final bool Function(Item dragged) canAcceptDrop;
-  final ValueChanged<Item> onAcceptDrop;
   final VoidCallback onTap;
   final VoidCallback onToggleDone;
 
@@ -40,57 +47,67 @@ class ItemRow extends StatelessWidget {
   /// Performs the actual deletion once the swipe is confirmed.
   final VoidCallback onDelete;
 
+  /// Highlights the tile while it's the hovered nest target.
+  final bool nestHighlight;
+
+  /// Delivery state of this item's reminder badge (ok / askable / blocked).
+  final ReminderBadgeState reminderState;
+
+  /// Tapped when the badge is in a warning state (askable → allow; blocked →
+  /// show how to re-enable).
+  final VoidCallback? onReminderWarningTap;
+
+  /// Fired when this row's long-press drag begins / ends, so the screen can
+  /// turn the add button into a trash drop target.
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
+
   @override
   Widget build(BuildContext context) {
-    return DragTarget<Item>(
-      onWillAcceptWithDetails: (d) => canAcceptDrop(d.data),
-      onAcceptWithDetails: (d) => onAcceptDrop(d.data),
-      builder: (context, candidate, rejected) {
-        final highlighted = candidate.isNotEmpty;
-        return LongPressDraggable<Item>(
-          data: item,
-          // Carry the tile centered under the finger.
-          dragAnchorStrategy: pointerDragAnchorStrategy,
-          feedback: FractionalTranslation(
-            translation: const Offset(-0.5, -0.5),
-            child: _DragFeedback(item: item),
-          ),
-          childWhenDragging: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Opacity(opacity: 0.4, child: _tile(context, false)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Dismissible(
-                key: ValueKey('row_${item.id}'),
-                background: _swipeAction(
-                  context,
-                  icon: Icons.edit_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                  alignment: Alignment.centerLeft,
-                ),
-                secondaryBackground: _swipeAction(
-                  context,
-                  icon: Icons.delete_outline_rounded,
-                  color: Theme.of(context).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                ),
-                confirmDismiss: (dir) async {
-                  if (dir == DismissDirection.endToStart) {
-                    return onConfirmDelete(); // swipe left -> delete
-                  }
-                  await onRename(); // swipe right -> rename, snap back
-                  return false;
-                },
-                onDismissed: (_) => onDelete(),
-                child: _tile(context, highlighted),
-              ),
+    return LongPressDraggable<Item>(
+      data: item,
+      onDragStarted: onDragStarted,
+      onDragEnd: (_) => onDragEnded?.call(),
+      // Carry the tile centered under the finger.
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: FractionalTranslation(
+        translation: const Offset(-0.5, -0.5),
+        child: _DragFeedback(item: item),
+      ),
+      childWhenDragging: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Opacity(opacity: 0.4, child: _tile(context, false)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Dismissible(
+            key: ValueKey('row_${item.id}'),
+            background: _swipeAction(
+              context,
+              icon: Icons.edit_outlined,
+              color: Theme.of(context).colorScheme.primary,
+              alignment: Alignment.centerLeft,
             ),
+            secondaryBackground: _swipeAction(
+              context,
+              icon: Icons.delete_outline_rounded,
+              color: Theme.of(context).colorScheme.error,
+              alignment: Alignment.centerRight,
+            ),
+            confirmDismiss: (dir) async {
+              if (dir == DismissDirection.endToStart) {
+                return onConfirmDelete(); // swipe left -> delete
+              }
+              await onRename(); // swipe right -> rename, snap back
+              return false;
+            },
+            onDismissed: (_) => onDelete(),
+            child: _tile(context, nestHighlight),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -117,7 +134,11 @@ class ItemRow extends StatelessWidget {
     final isTask = item.type == ItemType.task;
     final isDone = isTask && item.isDone;
 
-    final accent = isTask ? cs.primary : cs.tertiary;
+    final accent = item.color != null
+        ? Color(item.color!)
+        : (isTask ? cs.primary : cs.tertiary);
+    // Notes can carry a custom glyph; tasks keep the checkbox affordance.
+    final noteIcon = itemIconData(item.icon) ?? Icons.sticky_note_2_outlined;
     // Composite over the surface so the tile is opaque — otherwise the swipe
     // action panel behind it would bleed through the translucent tile.
     final tint = highlighted
@@ -160,7 +181,7 @@ class ItemRow extends StatelessWidget {
                         ? (isDone
                               ? Icons.check_circle_rounded
                               : Icons.radio_button_unchecked_rounded)
-                        : Icons.sticky_note_2_outlined,
+                        : noteIcon,
                     size: isTask ? 22 : 19,
                     color: accent.withValues(
                       alpha: isTask && !isDone ? 0.7 : 1,
@@ -218,20 +239,97 @@ class ItemRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Right side: just the created date.
-              Text(
-                formatCreatedAt(
-                  item.createdAt,
-                  Localizations.localeOf(context),
-                ),
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 0.2,
-                  color: cs.onSurface.withValues(alpha: 0.38),
-                ),
+              // Right side: the created date, with a reminder badge above it
+              // when the item has a reminder set.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (item.reminderAt != null) ...[
+                    _reminderBadge(context, accent),
+                    const SizedBox(height: 3),
+                  ],
+                  Text(
+                    formatCreatedAt(
+                      item.createdAt,
+                      Localizations.localeOf(context),
+                    ),
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 0.2,
+                      color: cs.onSurface.withValues(alpha: 0.38),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// The reminder badge on the right of the tile:
+  /// - ok → accent time
+  /// - askable → amber, "tap to allow"
+  /// - blocked → red strike-through, "tap to fix"
+  Widget _reminderBadge(BuildContext context, Color accent) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final time = formatCreatedAt(
+      item.reminderAt!,
+      Localizations.localeOf(context),
+    );
+
+    if (reminderState == ReminderBadgeState.ok) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_outlined, size: 11, color: accent),
+          const SizedBox(width: 3),
+          Text(
+            time,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: accent,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final blocked = reminderState == ReminderBadgeState.blocked;
+    final color = blocked ? cs.error : const Color(0xFFFFA000); // red / amber
+    final message = blocked ? l.remindersBlocked : l.remindersNeedPermission;
+
+    return Tooltip(
+      message: message,
+      triggerMode: TooltipTriggerMode.tap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onReminderWarningTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              blocked
+                  ? Icons.notifications_off_rounded
+                  : Icons.notifications_active_outlined,
+              size: 12,
+              color: color,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+                decoration: blocked ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ],
         ),
       ),
     );

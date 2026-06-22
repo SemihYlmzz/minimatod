@@ -152,6 +152,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get done => 'Done';
 
   @override
+  String get convertToTask => 'Convert to task';
+
+  @override
+  String get convertToNote => 'Convert to note';
+
+  @override
+  String get iconLabel => 'Icon';
+
+  @override
+  String get colorLabel => 'Color';
+
+  @override
+  String get reminderLabel => 'Reminder';
+
+  @override
+  String get setReminder => 'Set date & time';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get reminderLaterToday => 'Later today';
+
+  @override
+  String get reminderTomorrow => 'Tomorrow';
+
+  @override
+  String get reminderNextWeek => 'Next week';
+
+  @override
+  String get enableReminders => 'Enable reminders?';
+
+  @override
+  String get enableRemindersBody =>
+      'Allow notifications so Minimatod can alert you at the time you set. You can change this anytime in settings.';
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get enable => 'Enable';
+
+  @override
+  String get remindersBlocked =>
+      'Reminders are off. Allow notifications to receive them.';
+
+  @override
+  String get howToEnable => 'How to enable';
+
+  @override
+  String get enableInstructionsWeb =>
+      'Your browser has blocked notifications for this site. Click the page-info icon (to the left of the address bar), set Notifications to Allow, then reload the page.';
+
+  @override
+  String get enableInstructionsNative =>
+      'Notifications are turned off. Open your device Settings, find Minimatod, and allow Notifications.';
+
+  @override
+  String get remindersNeedPermission =>
+      'Reminder won\'t fire yet. Tap to allow notifications.';
+
+  @override
   String tasksLeft(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

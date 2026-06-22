@@ -20,24 +20,24 @@ class SettingsView extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.couldNotOpen(uri.toString()))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.couldNotOpen(uri.toString()))));
     }
   }
 
   String _themeLabel(AppLocalizations l, ThemeChoice c) => switch (c) {
-        ThemeChoice.auto => l.themeAuto,
-        ThemeChoice.light => l.themeLight,
-        ThemeChoice.dark => l.themeDark,
-        ThemeChoice.darkBlue => l.themeDarkBlue,
-      };
+    ThemeChoice.auto => l.themeAuto,
+    ThemeChoice.light => l.themeLight,
+    ThemeChoice.dark => l.themeDark,
+    ThemeChoice.darkBlue => l.themeDarkBlue,
+  };
 
   String _languageLabel(AppLocalizations l, LanguageChoice c) => switch (c) {
-        LanguageChoice.system => l.languageSystem,
-        LanguageChoice.en => l.languageEnglish,
-        LanguageChoice.tr => l.languageTurkish,
-      };
+    LanguageChoice.system => l.languageSystem,
+    LanguageChoice.en => l.languageEnglish,
+    LanguageChoice.tr => l.languageTurkish,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -63,90 +63,97 @@ class SettingsView extends StatelessWidget {
       body: ListenableBuilder(
         listenable: settings,
         builder: (context, _) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: [
-              // Brand header.
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 84,
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      alignment: Alignment.center,
-                      child: SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: MinimatodLogo(
-                          size: 56,
-                          markFraction: 0.86,
-                          markColor: cs.onSurface,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  // Brand header.
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(
+                              alpha: 0.4,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            width: 56,
+                            height: 56,
+                            child: MinimatodLogo(
+                              size: 56,
+                              markFraction: 0.86,
+                              markColor: cs.onSurface,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        Text(
+                          AppInfo.appName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const _VersionText(),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppInfo.appName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const _VersionText(),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              _SectionLabel(l.appearance),
-              _SettingsTile(
-                icon: Icons.palette_outlined,
-                label: l.theme,
-                subtitle: _themeLabel(l, settings.theme),
-                onTap: () => _pickTheme(context, l),
-              ),
-              _SettingsTile(
-                icon: Icons.language_rounded,
-                label: l.language,
-                subtitle: _languageLabel(l, settings.language),
-                onTap: () => _pickLanguage(context, l),
-              ),
-
-              const SizedBox(height: 8),
-              _SectionLabel(l.about),
-              _SettingsTile(
-                icon: Icons.shield_outlined,
-                label: l.privacyPolicy,
-                onTap: () => _open(context, Uri.parse(AppInfo.privacyUrl)),
-              ),
-              _SettingsTile(
-                icon: Icons.mail_outline_rounded,
-                label: l.contactSupport,
-                subtitle: AppInfo.supportEmail,
-                onTap: () => _open(
-                  context,
-                  Uri(
-                    scheme: 'mailto',
-                    path: AppInfo.supportEmail,
-                    query: 'subject=Minimatod Support',
                   ),
-                ),
+                  const SizedBox(height: 28),
+
+                  _SectionLabel(l.appearance),
+                  _SettingsTile(
+                    icon: Icons.palette_outlined,
+                    label: l.theme,
+                    subtitle: _themeLabel(l, settings.theme),
+                    onTap: () => _pickTheme(context, l),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.language_rounded,
+                    label: l.language,
+                    subtitle: _languageLabel(l, settings.language),
+                    onTap: () => _pickLanguage(context, l),
+                  ),
+
+                  const SizedBox(height: 8),
+                  _SectionLabel(l.about),
+                  _SettingsTile(
+                    icon: Icons.shield_outlined,
+                    label: l.privacyPolicy,
+                    onTap: () => _open(context, Uri.parse(AppInfo.privacyUrl)),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.mail_outline_rounded,
+                    label: l.contactSupport,
+                    subtitle: AppInfo.supportEmail,
+                    onTap: () => _open(
+                      context,
+                      Uri(
+                        scheme: 'mailto',
+                        path: AppInfo.supportEmail,
+                        query: 'subject=Minimatod Support',
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.public_rounded,
+                    label: l.website,
+                    onTap: () => _open(context, Uri.parse(AppInfo.website)),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.open_in_new_rounded,
+                    label: l.openWebApp,
+                    onTap: () => _open(context, Uri.parse(AppInfo.webApp)),
+                  ),
+                ],
               ),
-              _SettingsTile(
-                icon: Icons.public_rounded,
-                label: l.website,
-                onTap: () => _open(context, Uri.parse(AppInfo.website)),
-              ),
-              _SettingsTile(
-                icon: Icons.open_in_new_rounded,
-                label: l.openWebApp,
-                onTap: () => _open(context, Uri.parse(AppInfo.webApp)),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -258,7 +265,11 @@ class _SettingsTile extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Row(
               children: [
-                Icon(icon, size: 22, color: cs.onSurface.withValues(alpha: 0.8)),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: cs.onSurface.withValues(alpha: 0.8),
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(

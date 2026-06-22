@@ -46,7 +46,7 @@ class SqfliteNotesRepository implements NotesRepository {
   Future<Database> get _db async => _database ??= await _open();
 
   /// Bump this and add a branch in [_migrate] whenever the schema changes.
-  static const _schemaVersion = 3;
+  static const _schemaVersion = 4;
 
   Future<Database> _open() async {
     // On web the database lives in IndexedDB and is opened by name only —
@@ -75,6 +75,9 @@ class SqfliteNotesRepository implements NotesRepository {
         type TEXT NOT NULL,
         content TEXT NOT NULL,
         body TEXT,
+        icon TEXT,
+        color INTEGER,
+        reminder_at TEXT,
         is_done INTEGER NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -100,6 +103,12 @@ class SqfliteNotesRepository implements NotesRepository {
     if (oldVersion < 3) {
       // v3: long-form note body.
       await db.execute('ALTER TABLE $_table ADD COLUMN body TEXT');
+    }
+    if (oldVersion < 4) {
+      // v4: per-item icon, accent colour, and reminder time.
+      await db.execute('ALTER TABLE $_table ADD COLUMN icon TEXT');
+      await db.execute('ALTER TABLE $_table ADD COLUMN color INTEGER');
+      await db.execute('ALTER TABLE $_table ADD COLUMN reminder_at TEXT');
     }
   }
 

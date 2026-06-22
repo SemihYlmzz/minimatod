@@ -95,6 +95,20 @@
     }
   </script>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+
+  <!-- Stop mobile browsers (Samsung Internet, Safari, Chrome) from hijacking
+       a long-press as text selection / a callout menu, which cancels the app's
+       long-press drag. The Flutter context menu is also disabled from Dart. -->
+  <style>
+    html, body, flutter-view, flt-glass-pane {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
 </head>
 <body>
   <picture id="splash">

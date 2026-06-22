@@ -152,6 +152,68 @@ class AppLocalizationsTr extends AppLocalizations {
   String get done => 'Bitti';
 
   @override
+  String get convertToTask => 'Göreve dönüştür';
+
+  @override
+  String get convertToNote => 'Nota dönüştür';
+
+  @override
+  String get iconLabel => 'Simge';
+
+  @override
+  String get colorLabel => 'Renk';
+
+  @override
+  String get reminderLabel => 'Hatırlatıcı';
+
+  @override
+  String get setReminder => 'Tarih ve saat seç';
+
+  @override
+  String get edit => 'Düzenle';
+
+  @override
+  String get reminderLaterToday => 'Bugün ilerisi';
+
+  @override
+  String get reminderTomorrow => 'Yarın';
+
+  @override
+  String get reminderNextWeek => 'Gelecek hafta';
+
+  @override
+  String get enableReminders => 'Hatırlatıcılar açılsın mı?';
+
+  @override
+  String get enableRemindersBody =>
+      'Belirlediğin saatte seni uyarabilmemiz için bildirimlere izin ver. Bunu istediğin zaman ayarlardan değiştirebilirsin.';
+
+  @override
+  String get notNow => 'Şimdi değil';
+
+  @override
+  String get enable => 'İzin ver';
+
+  @override
+  String get remindersBlocked =>
+      'Hatırlatıcılar kapalı. Almak için bildirimlere izin ver.';
+
+  @override
+  String get howToEnable => 'Nasıl açılır';
+
+  @override
+  String get enableInstructionsWeb =>
+      'Tarayıcın bu site için bildirimleri engelledi. Adres çubuğunun solundaki sayfa bilgisi simgesine dokun, Bildirimler’i İzin Ver yap ve sayfayı yenile.';
+
+  @override
+  String get enableInstructionsNative =>
+      'Bildirimler kapalı. Cihaz Ayarları’nı aç, Minimatod’u bul ve Bildirimler’e izin ver.';
+
+  @override
+  String get remindersNeedPermission =>
+      'Hatırlatıcı henüz çalışmaz. İzin vermek için dokun.';
+
+  @override
   String tasksLeft(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

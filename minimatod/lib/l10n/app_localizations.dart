@@ -374,6 +374,120 @@ abstract class AppLocalizations {
   /// **'Done'**
   String get done;
 
+  /// No description provided for @convertToTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert to task'**
+  String get convertToTask;
+
+  /// No description provided for @convertToNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert to note'**
+  String get convertToNote;
+
+  /// No description provided for @iconLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get iconLabel;
+
+  /// No description provided for @colorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get colorLabel;
+
+  /// No description provided for @reminderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder'**
+  String get reminderLabel;
+
+  /// No description provided for @setReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Set date & time'**
+  String get setReminder;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @reminderLaterToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Later today'**
+  String get reminderLaterToday;
+
+  /// No description provided for @reminderTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get reminderTomorrow;
+
+  /// No description provided for @reminderNextWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Next week'**
+  String get reminderNextWeek;
+
+  /// No description provided for @enableReminders.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable reminders?'**
+  String get enableReminders;
+
+  /// No description provided for @enableRemindersBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications so Minimatod can alert you at the time you set. You can change this anytime in settings.'**
+  String get enableRemindersBody;
+
+  /// No description provided for @notNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notNow;
+
+  /// No description provided for @enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get enable;
+
+  /// No description provided for @remindersBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders are off. Allow notifications to receive them.'**
+  String get remindersBlocked;
+
+  /// No description provided for @howToEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'How to enable'**
+  String get howToEnable;
+
+  /// No description provided for @enableInstructionsWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Your browser has blocked notifications for this site. Click the page-info icon (to the left of the address bar), set Notifications to Allow, then reload the page.'**
+  String get enableInstructionsWeb;
+
+  /// No description provided for @enableInstructionsNative.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are turned off. Open your device Settings, find Minimatod, and allow Notifications.'**
+  String get enableInstructionsNative;
+
+  /// No description provided for @remindersNeedPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder won\'t fire yet. Tap to allow notifications.'**
+  String get remindersNeedPermission;
+
   /// No description provided for @tasksLeft.
   ///
   /// In en, this message translates to:

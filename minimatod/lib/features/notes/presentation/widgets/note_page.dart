@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../l10n/app_localizations.dart';
 
 /// A full-screen, document-style read/write surface for an item's note — the
@@ -32,8 +33,9 @@ class NotePage extends StatefulWidget {
 }
 
 class _NotePageState extends State<NotePage> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.text);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.text,
+  );
   Timer? _debounce;
   late String _lastSaved = widget.text;
 
@@ -96,32 +98,37 @@ class _NotePageState extends State<NotePage> {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      child: TextField(
-        controller: _controller,
-        focusNode: widget.focusNode,
-        autofocus: false,
-        expands: true,
-        maxLines: null,
-        minLines: null,
-        keyboardType: TextInputType.multiline,
-        textCapitalization: TextCapitalization.sentences,
-        textAlignVertical: TextAlignVertical.top,
-        style: TextStyle(
-          fontSize: 15.5,
-          height: 1.55,
-          color: cs.onSurface.withValues(alpha: 0.9),
-        ),
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          hintText: l.noteBodyHint,
-          hintStyle: TextStyle(
-            fontSize: 15.5,
-            height: 1.55,
-            color: cs.onSurface.withValues(alpha: 0.32),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: TextField(
+            controller: _controller,
+            focusNode: widget.focusNode,
+            autofocus: false,
+            expands: true,
+            maxLines: null,
+            minLines: null,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            textAlignVertical: TextAlignVertical.top,
+            style: TextStyle(
+              fontSize: 15.5,
+              height: 1.55,
+              color: cs.onSurface.withValues(alpha: 0.9),
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              hintText: l.noteBodyHint,
+              hintStyle: TextStyle(
+                fontSize: 15.5,
+                height: 1.55,
+                color: cs.onSurface.withValues(alpha: 0.32),
+              ),
+            ),
           ),
         ),
       ),
