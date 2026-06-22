@@ -6,7 +6,7 @@ import '../../data/note_model.dart';
 /// The per-item actions surfaced from the trailing ⋯ button. Editing (title,
 /// type, icon, colour, reminder) all happens in the composer sheet, so a single
 /// "Edit" entry covers what used to be rename + convert.
-enum ItemAction { edit, delete }
+enum ItemAction { edit, archive, delete }
 
 /// Shows the long-press / overflow actions sheet for [item]. Returns the chosen
 /// [ItemAction], or null if dismissed.
@@ -26,6 +26,11 @@ Future<ItemAction?> showItemActionsSheet(BuildContext context, Item item) {
               icon: Icons.tune_rounded,
               label: l.edit,
               onTap: () => Navigator.of(context).pop(ItemAction.edit),
+            ),
+            _ActionTile(
+              icon: Icons.archive_outlined,
+              label: l.archiveAction,
+              onTap: () => Navigator.of(context).pop(ItemAction.archive),
             ),
             _ActionTile(
               icon: Icons.delete_outline_rounded,

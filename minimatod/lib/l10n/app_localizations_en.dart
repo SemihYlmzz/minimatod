@@ -173,6 +173,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get edit => 'Edit';
 
   @override
+  String get archive => 'Archive';
+
+  @override
+  String get archiveAction => 'Archive';
+
+  @override
+  String get restore => 'Restore';
+
+  @override
+  String get library => 'Library';
+
+  @override
+  String get archiveEmpty => 'Nothing archived yet';
+
+  @override
   String get reminderLaterToday => 'Later today';
 
   @override

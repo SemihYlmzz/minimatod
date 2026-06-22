@@ -102,7 +102,7 @@ class _PathTitleState extends State<PathTitle> {
   }
 }
 
-class _Crumb extends StatelessWidget {
+class _Crumb extends StatefulWidget {
   const _Crumb({
     required this.label,
     required this.isCurrent,
@@ -122,10 +122,19 @@ class _Crumb extends StatelessWidget {
   final IconData? icon;
 
   @override
+  State<_Crumb> createState() => _CrumbState();
+}
+
+class _CrumbState extends State<_Crumb> {
+  // True while a mouse pointer is over the crumb (web/desktop only) — drives the
+  // hover highlight so the crumb visibly reads as clickable.
+  bool _hovering = false;
+
+  @override
   Widget build(BuildContext context) {
     return DragTarget<Item>(
-      onWillAcceptWithDetails: (d) => d.data.parentId != targetId,
-      onAcceptWithDetails: (d) => onDrop(targetId, d.data),
+      onWillAcceptWithDetails: (d) => d.data.parentId != widget.targetId,
+      onAcceptWithDetails: (d) => widget.onDrop(widget.targetId, d.data),
       builder: (context, candidate, rejected) =>
           _chip(context, highlighted: candidate.isNotEmpty),
     );
@@ -133,52 +142,68 @@ class _Crumb extends StatelessWidget {
 
   Widget _chip(BuildContext context, {required bool highlighted}) {
     final cs = Theme.of(context).colorScheme;
-    final color = isCurrent
+    final tappable = widget.onTap != null;
+    final color = widget.isCurrent
         ? cs.onSurface
         : cs.onSurface.withValues(alpha: 0.55);
 
     final Color background;
     if (highlighted) {
       background = cs.primary.withValues(alpha: 0.22);
+    } else if (_hovering && tappable) {
+      // Subtle wash on hover so a clickable crumb feels interactive on the web
+      // and desktop builds.
+      background = cs.onSurface.withValues(alpha: 0.07);
     } else {
       background = Colors.transparent;
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        constraints: const BoxConstraints(maxWidth: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(10),
-          border: highlighted
-              ? Border.all(color: cs.primary.withValues(alpha: 0.6), width: 1.5)
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 17, color: color),
-              const SizedBox(width: 4),
-            ],
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: isCurrent ? 17 : 15,
-                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                  letterSpacing: -0.3,
-                  color: color,
+    return MouseRegion(
+      // Only the clickable crumbs (not the current one) get the pointing hand.
+      cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: tappable ? (_) => setState(() => _hovering = true) : null,
+      onExit: tappable ? (_) => setState(() => _hovering = false) : null,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          constraints: const BoxConstraints(maxWidth: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(10),
+            border: highlighted
+                ? Border.all(
+                    color: cs.primary.withValues(alpha: 0.6),
+                    width: 1.5,
+                  )
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 17, color: color),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: widget.isCurrent ? 17 : 15,
+                    fontWeight: widget.isCurrent
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    letterSpacing: -0.3,
+                    color: color,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

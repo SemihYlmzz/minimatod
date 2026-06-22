@@ -173,6 +173,21 @@ class AppLocalizationsTr extends AppLocalizations {
   String get edit => 'Düzenle';
 
   @override
+  String get archive => 'Arşiv';
+
+  @override
+  String get archiveAction => 'Arşivle';
+
+  @override
+  String get restore => 'Geri yükle';
+
+  @override
+  String get library => 'Kitaplık';
+
+  @override
+  String get archiveEmpty => 'Arşivde henüz bir şey yok';
+
+  @override
   String get reminderLaterToday => 'Bugün ilerisi';
 
   @override

@@ -175,6 +175,9 @@ class _NotesViewState extends State<NotesView> {
           color: result.color,
           reminderAt: result.reminderAt,
         );
+      case ItemAction.archive:
+        await widget.controller.archiveItem(live.id);
+        if (isCurrent && mounted) Navigator.of(context).pop();
       case ItemAction.delete:
         if (!mounted) return;
         final ok = await confirmDelete(context);
@@ -359,7 +362,10 @@ class _NotesViewState extends State<NotesView> {
                 tooltip: l.settings,
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => SettingsView(settings: widget.settings),
+                    builder: (_) => SettingsView(
+                      settings: widget.settings,
+                      controller: widget.controller,
+                    ),
                   ),
                 ),
               )

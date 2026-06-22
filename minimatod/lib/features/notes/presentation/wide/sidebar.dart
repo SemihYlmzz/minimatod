@@ -24,6 +24,7 @@ class Sidebar extends StatelessWidget {
     required this.onHome,
     required this.onSearch,
     required this.onSettings,
+    required this.onArchive,
   });
 
   final NotesController controller;
@@ -43,6 +44,7 @@ class Sidebar extends StatelessWidget {
   final VoidCallback onHome;
   final VoidCallback onSearch;
   final VoidCallback onSettings;
+  final VoidCallback onArchive;
 
   static const double _expandedWidth = 264;
   static const double _collapsedWidth = 72;
@@ -95,6 +97,13 @@ class Sidebar extends StatelessWidget {
                 collapsed: collapsed,
                 selected: selectedId == null,
                 onTap: onHome,
+              ),
+              _NavTile(
+                icon: Icons.archive_outlined,
+                label: l.archive,
+                collapsed: collapsed,
+                selected: false,
+                onTap: onArchive,
               ),
               _NavTile(
                 icon: Icons.settings_outlined,

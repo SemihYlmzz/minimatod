@@ -5,9 +5,11 @@ import '../../../../core/widgets/dismiss_keyboard.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/presentation/settings_view.dart';
 import '../../data/note_model.dart';
+import '../archive/archive_view.dart';
 import '../create_item_sheet.dart';
 import '../notes_controller.dart';
 import '../search/item_search_delegate.dart';
+import '../widgets/item_actions_sheet.dart';
 import 'items_pane.dart';
 import 'note_pane.dart';
 import 'sidebar.dart';
@@ -81,9 +83,58 @@ class _WideHomeShellState extends State<WideHomeShell> {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SettingsView(settings: widget.settings),
+        builder: (_) => SettingsView(
+          settings: widget.settings,
+          controller: widget.controller,
+        ),
       ),
     );
+  }
+
+  void _openArchive() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArchiveView(controller: widget.controller),
+      ),
+    );
+  }
+
+  /// The selected item's overflow menu (the wide-layout parallel to the phone
+  /// detail ⋯): edit, archive, or delete. Archiving/deleting clears the now-gone
+  /// selection back to Home.
+  Future<void> _onItemMenu(Item item) async {
+    final live = widget.controller.items.firstWhere(
+      (i) => i.id == item.id,
+      orElse: () => item,
+    );
+    final action = await showItemActionsSheet(context, live);
+    if (action == null || !mounted) return;
+    switch (action) {
+      case ItemAction.edit:
+        final result = await showCreateItemSheet(
+          context,
+          initial: live,
+          notifications: widget.controller.notifications,
+        );
+        if (result == null) return;
+        await widget.controller.updateItemMeta(
+          live,
+          content: result.content,
+          type: result.type,
+          icon: result.icon,
+          color: result.color,
+          reminderAt: result.reminderAt,
+        );
+      case ItemAction.archive:
+        await widget.controller.archiveItem(live.id);
+        _select(null);
+      case ItemAction.delete:
+        if (!mounted) return;
+        final ok = await confirmDelete(context);
+        if (!ok) return;
+        await widget.controller.deleteItem(live.id);
+        _select(null);
+    }
   }
 
   Future<void> _openSearch() async {
@@ -132,6 +183,7 @@ class _WideHomeShellState extends State<WideHomeShell> {
                     onHome: () => _select(null),
                     onSearch: _openSearch,
                     onSettings: _openSettings,
+                    onArchive: _openArchive,
                   ),
                   const VerticalDivider(width: 1, thickness: 1),
                   Expanded(
@@ -151,6 +203,7 @@ class _WideHomeShellState extends State<WideHomeShell> {
                     child: NotePane(
                       controller: widget.controller,
                       selectedId: selectedId,
+                      onMenu: _onItemMenu,
                     ),
                   ),
                 ],

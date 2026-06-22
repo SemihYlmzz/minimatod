@@ -220,6 +220,34 @@ class NotesController extends ChangeNotifier {
     await load();
   }
 
+  /// Archives an item and its entire subtree, hiding it from the active board
+  /// (restorable later from the Archive screen). Cancels any reminders so an
+  /// archived item never pings.
+  Future<void> archiveItem(String id) async {
+    final n = notifications;
+    if (n != null) {
+      for (final subId in _subtreeIds(id)) {
+        n.cancel(subId);
+      }
+    }
+    await _repository.archive(id);
+    await load();
+  }
+
+  /// Restores an archived item (and its archived subtree) back onto the board,
+  /// re-arming any future reminders it carried.
+  Future<void> unarchiveItem(String id) async {
+    await _repository.unarchive(id);
+    await load();
+    await rescheduleAll();
+    await refreshReminderPermission();
+  }
+
+  /// The archived items (newest first), loaded straight from storage. Archived
+  /// rows live outside the in-memory [items] board, so the Archive screen reads
+  /// them on demand.
+  Future<List<Item>> loadArchived() => _repository.getArchived();
+
   /// Deletes an item and its entire subtree.
   Future<void> deleteItem(String id) async {
     final n = notifications;

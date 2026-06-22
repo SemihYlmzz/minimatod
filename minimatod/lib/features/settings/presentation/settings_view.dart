@@ -7,14 +7,21 @@ import '../../../core/brand/logo_painter.dart';
 import '../../../core/settings/app_settings_controller.dart';
 import '../../../core/theme/app_themes.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../notes/presentation/archive/archive_view.dart';
+import '../../notes/presentation/notes_controller.dart';
 
 /// Settings / about screen. Hosts appearance (theme + language) preferences plus
-/// the legally-required Privacy Policy link, support contact, web app and
-/// version info.
+/// the Archive entry, the legally-required Privacy Policy link, support contact,
+/// web app and version info.
 class SettingsView extends StatelessWidget {
-  const SettingsView({super.key, required this.settings});
+  const SettingsView({
+    super.key,
+    required this.settings,
+    required this.controller,
+  });
 
   final AppSettingsController settings;
+  final NotesController controller;
 
   Future<void> _open(BuildContext context, Uri uri) async {
     final l = AppLocalizations.of(context);
@@ -119,6 +126,18 @@ class SettingsView extends StatelessWidget {
                     label: l.language,
                     subtitle: _languageLabel(l, settings.language),
                     onTap: () => _pickLanguage(context, l),
+                  ),
+
+                  const SizedBox(height: 8),
+                  _SectionLabel(l.library),
+                  _SettingsTile(
+                    icon: Icons.archive_outlined,
+                    label: l.archive,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ArchiveView(controller: controller),
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 8),

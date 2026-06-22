@@ -12,7 +12,7 @@ import 'note_model.dart';
 /// Business logic depends on this interface, not on sqflite, so the backing
 /// store can be swapped or faked in tests.
 abstract class NotesRepository {
-  /// All items, unordered.
+  /// All active items, unordered. Excludes archived and deleted items.
   Future<List<Item>> getAll();
 
   /// Direct children of [parentId] (pass null for root items), ordered.
@@ -20,9 +20,19 @@ abstract class NotesRepository {
 
   Future<Item?> getById(String id);
 
+  /// All archived (not deleted) items, newest archive first. Used by the
+  /// Archive screen.
+  Future<List<Item>> getArchived();
+
   Future<void> add(Item item);
 
   Future<void> update(Item item);
+
+  /// Archives [id] and its whole subtree (reversible — see [unarchive]).
+  Future<void> archive(String id);
+
+  /// Restores [id] and its archived subtree back onto the active board.
+  Future<void> unarchive(String id);
 
   /// Deletes [id] and, via the self-referencing foreign key, its whole subtree.
   Future<void> delete(String id);
@@ -46,7 +56,7 @@ class SqfliteNotesRepository implements NotesRepository {
   Future<Database> get _db async => _database ??= await _open();
 
   /// Bump this and add a branch in [_migrate] whenever the schema changes.
-  static const _schemaVersion = 4;
+  static const _schemaVersion = 5;
 
   Future<Database> _open() async {
     // On web the database lives in IndexedDB and is opened by name only —
@@ -82,12 +92,14 @@ class SqfliteNotesRepository implements NotesRepository {
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
+        archived_at TEXT,
         deleted_at TEXT,
         FOREIGN KEY (parent_id) REFERENCES $_table(id) ON DELETE CASCADE
       )
     ''');
     await db.execute('CREATE INDEX idx_items_parent ON $_table(parent_id)');
     await db.execute('CREATE INDEX idx_items_deleted ON $_table(deleted_at)');
+    await db.execute('CREATE INDEX idx_items_archived ON $_table(archived_at)');
   }
 
   /// Applies incremental migrations from [oldVersion] up to [newVersion].
@@ -110,12 +122,22 @@ class SqfliteNotesRepository implements NotesRepository {
       await db.execute('ALTER TABLE $_table ADD COLUMN color INTEGER');
       await db.execute('ALTER TABLE $_table ADD COLUMN reminder_at TEXT');
     }
+    if (oldVersion < 5) {
+      // v5: reversible archive marker + supporting index.
+      await db.execute('ALTER TABLE $_table ADD COLUMN archived_at TEXT');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_items_archived ON $_table(archived_at)',
+      );
+    }
   }
 
   @override
   Future<List<Item>> getAll() async {
     final db = await _db;
-    final rows = await db.query(_table, where: 'deleted_at IS NULL');
+    final rows = await db.query(
+      _table,
+      where: 'deleted_at IS NULL AND archived_at IS NULL',
+    );
     return rows.map(Item.fromMap).toList();
   }
 
@@ -125,10 +147,21 @@ class SqfliteNotesRepository implements NotesRepository {
     final rows = await db.query(
       _table,
       where: parentId == null
-          ? 'parent_id IS NULL AND deleted_at IS NULL'
-          : 'parent_id = ? AND deleted_at IS NULL',
+          ? 'parent_id IS NULL AND deleted_at IS NULL AND archived_at IS NULL'
+          : 'parent_id = ? AND deleted_at IS NULL AND archived_at IS NULL',
       whereArgs: parentId == null ? null : [parentId],
       orderBy: 'sort_order ASC, created_at ASC',
+    );
+    return rows.map(Item.fromMap).toList();
+  }
+
+  @override
+  Future<List<Item>> getArchived() async {
+    final db = await _db;
+    final rows = await db.query(
+      _table,
+      where: 'archived_at IS NOT NULL AND deleted_at IS NULL',
+      orderBy: 'archived_at DESC',
     );
     return rows.map(Item.fromMap).toList();
   }
@@ -164,6 +197,56 @@ class SqfliteNotesRepository implements NotesRepository {
       where: 'id = ?',
       whereArgs: [item.id],
     );
+  }
+
+  @override
+  Future<void> archive(String id) => _setArchived(id, archived: true);
+
+  @override
+  Future<void> unarchive(String id) => _setArchived(id, archived: false);
+
+  /// Flips the archive state of [id] and its subtree in one transaction.
+  ///
+  /// When [archived] is true we walk the *active* subtree (children still on the
+  /// board) and stamp `archived_at`; when false we walk the *archived* subtree
+  /// and clear it. Bounding the walk to the matching state means re-archiving or
+  /// restoring never reaches into items the user already moved the other way.
+  Future<void> _setArchived(String id, {required bool archived}) async {
+    final db = await _db;
+    final now = DateTime.now().toIso8601String();
+    // Children eligible to follow the parent: not deleted, and currently in the
+    // opposite archive state from where we're moving them.
+    final childFilter =
+        'parent_id = ? AND deleted_at IS NULL AND '
+        '${archived ? 'archived_at IS NULL' : 'archived_at IS NOT NULL'}';
+
+    await db.transaction((txn) async {
+      final toMark = <String>[id];
+      final queue = <String>[id];
+      while (queue.isNotEmpty) {
+        final parent = queue.removeAt(0);
+        final children = await txn.query(
+          _table,
+          columns: ['id'],
+          where: childFilter,
+          whereArgs: [parent],
+        );
+        for (final row in children) {
+          final childId = row['id']! as String;
+          toMark.add(childId);
+          queue.add(childId);
+        }
+      }
+
+      for (final markId in toMark) {
+        await txn.update(
+          _table,
+          {'archived_at': archived ? now : null, 'updated_at': now},
+          where: 'id = ?',
+          whereArgs: [markId],
+        );
+      }
+    });
   }
 
   @override

@@ -20,6 +20,7 @@ class Item {
     this.reminderAt,
     this.isDone = false,
     this.sortOrder = 0,
+    this.archivedAt,
     this.deletedAt,
   });
 
@@ -62,9 +63,17 @@ class Item {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Archive marker. Null means the item is on the active board; non-null means
+  /// it (and its subtree) was archived at this time — hidden from the normal
+  /// lists but restorable from the Archive screen. Distinct from [deletedAt]:
+  /// archiving is a reversible "put away", deleting is a tombstone.
+  final DateTime? archivedAt;
+
   /// Soft-delete tombstone. Null means the item is active. Kept (not physically
   /// removed) so future cloud sync can propagate deletions across devices.
   final DateTime? deletedAt;
+
+  bool get isArchived => archivedAt != null;
 
   bool get isDeleted => deletedAt != null;
 
@@ -81,6 +90,7 @@ class Item {
     int? sortOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Object? archivedAt = _sentinel,
     Object? deletedAt = _sentinel,
   }) {
     return Item(
@@ -98,6 +108,9 @@ class Item {
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      archivedAt: archivedAt == _sentinel
+          ? this.archivedAt
+          : archivedAt as DateTime?,
       deletedAt: deletedAt == _sentinel
           ? this.deletedAt
           : deletedAt as DateTime?,
@@ -119,6 +132,7 @@ class Item {
       'sort_order': sortOrder,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'archived_at': archivedAt?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
     };
   }
@@ -140,6 +154,9 @@ class Item {
       sortOrder: map['sort_order']! as int,
       createdAt: DateTime.parse(map['created_at']! as String),
       updatedAt: DateTime.parse(map['updated_at']! as String),
+      archivedAt: map['archived_at'] == null
+          ? null
+          : DateTime.parse(map['archived_at']! as String),
       deletedAt: map['deleted_at'] == null
           ? null
           : DateTime.parse(map['deleted_at']! as String),
@@ -161,6 +178,7 @@ class Item {
         other.sortOrder == sortOrder &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt &&
+        other.archivedAt == archivedAt &&
         other.deletedAt == deletedAt;
   }
 
@@ -178,6 +196,7 @@ class Item {
     sortOrder,
     createdAt,
     updatedAt,
+    archivedAt,
     deletedAt,
   );
 }

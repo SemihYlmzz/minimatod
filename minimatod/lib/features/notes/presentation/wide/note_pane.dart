@@ -14,14 +14,23 @@ class NotePane extends StatelessWidget {
     super.key,
     required this.controller,
     required this.selectedId,
+    this.onMenu,
   });
 
   final NotesController controller;
   final String? selectedId;
 
+  /// Opens the selected item's overflow actions (edit / archive / delete).
+  /// Null hides the button (e.g. when nothing is selected).
+  final ValueChanged<Item>? onMenu;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // A gentle tonal step below the surface used by the sidebar and items list,
+    // so the right column reads as a distinct "note canvas". Theme-aware, so it
+    // recedes in light mode and lifts in dark mode automatically.
+    final paneColor = cs.surfaceContainerLow;
 
     Item? item;
     final id = selectedId;
@@ -35,7 +44,9 @@ class NotePane extends StatelessWidget {
     }
 
     if (item == null) {
-      return Center(
+      return Container(
+        color: paneColor,
+        alignment: Alignment.center,
         child: Icon(
           Icons.notes_rounded,
           size: 40,
@@ -62,74 +73,81 @@ class NotePane extends StatelessWidget {
         decoration: isTask && item.isDone ? TextDecoration.lineThrough : null,
       ),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasVisual)
+    return Container(
+      color: paneColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(14),
+                    if (hasVisual) ...[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          itemIconData(item.icon) ??
+                              (isTask
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.sticky_note_2_outlined),
+                          color: accent,
+                          size: 22,
+                        ),
                       ),
-                      child: Icon(
-                        itemIconData(item.icon) ??
-                            (isTask
-                                ? Icons.check_circle_outline_rounded
-                                : Icons.sticky_note_2_outlined),
-                        color: accent,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(child: titleText),
+                    if (onMenu != null)
+                      IconButton(
+                        icon: const Icon(Icons.more_horiz_rounded),
+                        onPressed: () => onMenu!(item!),
+                      ),
                   ],
-                )
-              else
-                titleText,
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 12,
-                    color: cs.onSurface.withValues(alpha: 0.35),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    formatCreatedAt(
-                      item.createdAt,
-                      Localizations.localeOf(context),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: cs.onSurface.withValues(alpha: 0.35),
                     ),
-                    style: TextStyle(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: cs.onSurface.withValues(alpha: 0.4),
+                    const SizedBox(width: 5),
+                    Text(
+                      formatCreatedAt(
+                        item.createdAt,
+                        Localizations.localeOf(context),
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        color: cs.onSurface.withValues(alpha: 0.4),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
-        ),
-        Expanded(
-          child: NotePage(
-            key: ValueKey('note_${item.id}'),
-            text: item.body ?? '',
-            onChanged: (v) => controller.setBody(id!, v),
+          Expanded(
+            child: NotePage(
+              key: ValueKey('note_${item.id}'),
+              text: item.body ?? '',
+              onChanged: (v) => controller.setBody(id!, v),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
