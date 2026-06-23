@@ -112,7 +112,10 @@ class AudioController extends ChangeNotifier {
   Future<bool> startRecording() async {
     if (_recording) return false;
     try {
-      if (!await _recorder.hasPermission()) return false;
+      // Native: hasPermission() asks the OS for the mic (and prompts). Web:
+      // skip it — Safari throws on permissions.query('microphone'), and on
+      // every browser the real prompt comes from getUserMedia inside start().
+      if (!kIsWeb && !await _recorder.hasPermission()) return false;
       final picked = await _pickEncoder();
       final encoder = picked.$1;
       if (encoder == null) {
