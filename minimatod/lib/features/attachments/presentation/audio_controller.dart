@@ -107,53 +107,60 @@ class AudioController extends ChangeNotifier {
   Future<bool> hasPermission() => _recorder.hasPermission();
 
   /// Starts a recording (not yet tied to any item). False if denied, busy, or
-  /// no codec is available — never throws, so a failure surfaces as a snackbar
-  /// instead of a silent dead button.
+  /// no codec works — never throws, so a failure surfaces as a snackbar instead
+  /// of a silent dead button.
   Future<bool> startRecording() async {
     if (_recording) return false;
     try {
-      // Native: hasPermission() asks the OS for the mic (and prompts). Web:
-      // skip it — Safari throws on permissions.query('microphone'), and on
-      // every browser the real prompt comes from getUserMedia inside start().
-      if (!kIsWeb && !await _recorder.hasPermission()) return false;
-      final picked = await _pickEncoder();
-      final encoder = picked.$1;
-      if (encoder == null) {
-        debugPrint('Minimatod: no supported audio codec in this browser');
-        return false;
+      // Native: hasPermission() asks the OS for the mic up front (and prompts).
+      if (!kIsWeb) {
+        if (!await _recorder.hasPermission()) return false;
+        _mime = 'audio/aac';
+        await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path: await tempRecordingPath(),
+        );
+        _recording = true;
+        notifyListeners();
+        return true;
       }
-      _mime = picked.$2;
-      final path = await tempRecordingPath();
-      await _recorder.start(RecordConfig(encoder: encoder), path: path);
-      _recording = true;
-      notifyListeners();
-      return true;
+
+      // Web: don't pre-check codec support (isEncoderSupported is unreliable —
+      // it threw even for opus on Chrome). Just try start() directly: it runs
+      // getUserMedia (the real browser prompt) and throws only if the codec
+      // itself is unsupported, so try a few in order. opus is smallest
+      // (Chrome/Firefox); WAV records via the Web-Audio PCM path and works on
+      // every browser including Safari, so it's the guaranteed fallback. The
+      // browser shows the mic prompt only once, so retries after Allow don't
+      // re-prompt.
+      const attempts = <(AudioEncoder, String)>[
+        (AudioEncoder.opus, 'audio/webm'),
+        (AudioEncoder.aacLc, 'audio/mp4'),
+        (AudioEncoder.wav, 'audio/wav'),
+      ];
+      for (final a in attempts) {
+        try {
+          await _recorder.start(
+            RecordConfig(encoder: a.$1),
+            path: await tempRecordingPath(),
+          );
+          _mime = a.$2;
+          _recording = true;
+          notifyListeners();
+          return true;
+        } catch (e) {
+          debugPrint('Minimatod: web encoder ${a.$1} failed: $e');
+          try {
+            await _recorder.cancel();
+          } catch (_) {}
+        }
+      }
+      return false;
     } catch (e) {
       debugPrint('Minimatod: startRecording failed: $e');
       _recording = false;
       return false;
     }
-  }
-
-  /// Picks a codec the platform's recorder actually supports. Native records
-  /// AAC/m4a. Web is browser-dependent: Chrome/Firefox do opus/webm, but Safari
-  /// can't — it does AAC in an mp4 container — so probe in order and fall back
-  /// (the old hard-coded opus threw an uncaught error on Safari).
-  Future<(AudioEncoder?, String)> _pickEncoder() async {
-    if (!kIsWeb) return (AudioEncoder.aacLc, 'audio/aac');
-    const candidates = <(AudioEncoder, String)>[
-      (AudioEncoder.opus, 'audio/webm'),
-      (AudioEncoder.aacLc, 'audio/mp4'),
-      (AudioEncoder.wav, 'audio/wav'),
-    ];
-    for (final c in candidates) {
-      try {
-        if (await _recorder.isEncoderSupported(c.$1)) return c;
-      } catch (_) {
-        // isEncoderSupported can throw on some browsers; just try the next.
-      }
-    }
-    return (null, 'audio/webm');
   }
 
   /// Stops recording and stores the clip in the BlobStore, returning a handle to
