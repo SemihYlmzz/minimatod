@@ -63,6 +63,11 @@ class AudioController extends ChangeNotifier {
   bool _recording = false;
   bool get isRecording => _recording;
 
+  /// Mime type of the in-progress recording, chosen by [_pickEncoder] to match
+  /// what the platform's recorder actually supports. Carried into the stored
+  /// clip so playback uses the right content type.
+  String _mime = 'audio/aac';
+
   /// Key of the clip currently playing (null when stopped): an attachment id
   /// for an attached clip, or a content hash for a not-yet-attached pending one.
   String? _playingKey;
@@ -101,17 +106,51 @@ class AudioController extends ChangeNotifier {
   /// Whether the mic is available/permitted — prompts on first ask.
   Future<bool> hasPermission() => _recorder.hasPermission();
 
-  /// Starts a recording (not yet tied to any item). False if denied or busy.
+  /// Starts a recording (not yet tied to any item). False if denied, busy, or
+  /// no codec is available — never throws, so a failure surfaces as a snackbar
+  /// instead of a silent dead button.
   Future<bool> startRecording() async {
     if (_recording) return false;
-    if (!await _recorder.hasPermission()) return false;
-    final path = await tempRecordingPath();
-    // Web encodes opus/webm (broad browser support); native uses AAC/m4a.
-    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc;
-    await _recorder.start(RecordConfig(encoder: encoder), path: path);
-    _recording = true;
-    notifyListeners();
-    return true;
+    try {
+      if (!await _recorder.hasPermission()) return false;
+      final picked = await _pickEncoder();
+      final encoder = picked.$1;
+      if (encoder == null) {
+        debugPrint('Minimatod: no supported audio codec in this browser');
+        return false;
+      }
+      _mime = picked.$2;
+      final path = await tempRecordingPath();
+      await _recorder.start(RecordConfig(encoder: encoder), path: path);
+      _recording = true;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Minimatod: startRecording failed: $e');
+      _recording = false;
+      return false;
+    }
+  }
+
+  /// Picks a codec the platform's recorder actually supports. Native records
+  /// AAC/m4a. Web is browser-dependent: Chrome/Firefox do opus/webm, but Safari
+  /// can't — it does AAC in an mp4 container — so probe in order and fall back
+  /// (the old hard-coded opus threw an uncaught error on Safari).
+  Future<(AudioEncoder?, String)> _pickEncoder() async {
+    if (!kIsWeb) return (AudioEncoder.aacLc, 'audio/aac');
+    const candidates = <(AudioEncoder, String)>[
+      (AudioEncoder.opus, 'audio/webm'),
+      (AudioEncoder.aacLc, 'audio/mp4'),
+      (AudioEncoder.wav, 'audio/wav'),
+    ];
+    for (final c in candidates) {
+      try {
+        if (await _recorder.isEncoderSupported(c.$1)) return c;
+      } catch (_) {
+        // isEncoderSupported can throw on some browsers; just try the next.
+      }
+    }
+    return (null, 'audio/webm');
   }
 
   /// Stops recording and stores the clip in the BlobStore, returning a handle to
@@ -129,7 +168,7 @@ class AudioController extends ChangeNotifier {
     final hash = await _blobs.write(bytes);
     return PendingRecording(
       hash: hash,
-      mimeType: kIsWeb ? 'audio/webm' : 'audio/aac',
+      mimeType: _mime,
       byteSize: bytes.length,
     );
   }
