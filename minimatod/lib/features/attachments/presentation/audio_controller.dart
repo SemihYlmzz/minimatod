@@ -127,15 +127,18 @@ class AudioController extends ChangeNotifier {
 
       // Web: don't pre-check codec support (isEncoderSupported is unreliable —
       // it threw even for opus on Chrome). Just try start() directly: it runs
-      // getUserMedia (the real browser prompt) and throws only if the codec
-      // itself is unsupported, so try a few in order. opus is smallest
-      // (Chrome/Firefox); WAV records via the Web-Audio PCM path and works on
-      // every browser including Safari, so it's the guaranteed fallback. The
-      // browser shows the mic prompt only once, so retries after Allow don't
-      // re-prompt.
+      // getUserMedia (the real browser prompt) and throws only if the codec is
+      // unsupported, so try a few in order.
+      //
+      // AAC/mp4 goes FIRST because it's the one format browsers can both record
+      // AND play: Safari records mp4 and plays mp4, but records webm/opus it
+      // then can't decode (→ silent, 0s). Chrome can't *record* mp4, so it
+      // falls through to opus/webm, which it both records and plays. WAV (PCM
+      // path) is the universal last-resort. The mic prompt shows only once, so
+      // retries after Allow don't re-prompt.
       const attempts = <(AudioEncoder, String)>[
-        (AudioEncoder.opus, 'audio/webm'),
         (AudioEncoder.aacLc, 'audio/mp4'),
+        (AudioEncoder.opus, 'audio/webm'),
         (AudioEncoder.wav, 'audio/wav'),
       ];
       for (final a in attempts) {
