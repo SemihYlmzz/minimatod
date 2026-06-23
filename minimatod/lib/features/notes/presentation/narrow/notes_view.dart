@@ -1,26 +1,27 @@
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/navigation/route_stack.dart';
-import '../../../core/responsive/breakpoints.dart';
-import '../../../core/settings/app_settings_controller.dart';
-import '../../../core/widgets/dismiss_keyboard.dart';
-import '../../../l10n/app_localizations.dart';
-import '../../settings/presentation/settings_view.dart';
-import '../data/note_model.dart';
-import 'create_item_sheet.dart';
-import 'notes_controller.dart';
-import 'search/item_search_delegate.dart';
-import 'widgets/add_bar.dart';
-import 'widgets/detail_tabs.dart';
-import 'widgets/empty_state.dart';
-import 'widgets/item_actions_sheet.dart';
-import 'widgets/item_row.dart';
-import 'widgets/note_page.dart';
-import 'widgets/reminder_help.dart';
-import 'widgets/path_title.dart';
-import 'widgets/reorderable_item.dart';
-import 'widgets/section_divider.dart';
+import '../../../../core/navigation/route_stack.dart';
+import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/settings/app_settings_controller.dart';
+import '../../../../core/widgets/dismiss_keyboard.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../attachments/presentation/voice_note_bar.dart';
+import '../../../reminders/presentation/reminder_help.dart';
+import '../../../settings/presentation/settings_view.dart';
+import '../../data/note_model.dart';
+import '../composer/create_item_sheet.dart';
+import '../notes_controller.dart';
+import '../search/item_search_delegate.dart';
+import '../widgets/add_bar.dart';
+import '../widgets/detail_tabs.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/item_actions_sheet.dart';
+import '../widgets/item_row.dart';
+import '../widgets/note_page.dart';
+import '../widgets/path_title.dart';
+import '../widgets/reorderable_item.dart';
+import '../widgets/section_divider.dart';
 
 /// A single level of the note/task tree.
 ///
@@ -87,7 +88,8 @@ class _NotesViewState extends State<NotesView> {
   Future<void> _openCreate() async {
     final result = await showCreateItemSheet(
       context,
-      notifications: widget.controller.notifications,
+      notifications: widget.controller.reminders?.notifications,
+      audio: widget.controller.audio,
     );
     if (result == null) return;
     await widget.controller.addItem(
@@ -97,6 +99,7 @@ class _NotesViewState extends State<NotesView> {
       color: result.color,
       reminderAt: result.reminderAt,
       parentId: widget.parent?.id,
+      recording: result.audio,
     );
   }
 
@@ -164,7 +167,8 @@ class _NotesViewState extends State<NotesView> {
         final result = await showCreateItemSheet(
           context,
           initial: live,
-          notifications: widget.controller.notifications,
+          notifications: widget.controller.reminders?.notifications,
+          audio: widget.controller.audio,
         );
         if (result == null) return;
         await widget.controller.updateItemMeta(
@@ -175,6 +179,12 @@ class _NotesViewState extends State<NotesView> {
           color: result.color,
           reminderAt: result.reminderAt,
         );
+        final rec = result.audio;
+        if (rec != null) {
+          await widget.controller.audio?.attach(live.id, rec);
+        } else if (result.removeAudio) {
+          await widget.controller.audio?.remove(live.id);
+        }
       case ItemAction.archive:
         await widget.controller.archiveItem(live.id);
         if (isCurrent && mounted) Navigator.of(context).pop();
@@ -246,23 +256,44 @@ class _NotesViewState extends State<NotesView> {
     return _buildList(items);
   }
 
-  /// The detail body: a horizontal swipe between the children list and the
-  /// full note editor for [parent]. (The page indicator lives in the AppBar.)
+  /// The detail body: an optional voice-note bar above a horizontal swipe
+  /// between the children list and the full note editor for [parent]. (The page
+  /// indicator lives in the AppBar.)
   Widget _buildDetailPager(Item parent, List<Item> items) {
-    return PageView(
-      controller: _pageController,
-      onPageChanged: (i) {
-        // Leaving the note → drop focus so it autosaves and the keyboard hides.
-        if (i != 1) _noteFocus.unfocus();
-        setState(() => _page = i);
-      },
+    final audio = widget.controller.audio;
+    final cs = Theme.of(context).colorScheme;
+    final accent = parent.color != null
+        ? Color(parent.color!)
+        : (parent.type == ItemType.task ? cs.primary : cs.tertiary);
+    return Column(
       children: [
-        _listPage(items),
-        NotePage(
-          key: ValueKey('note_${parent.id}'),
-          focusNode: _noteFocus,
-          text: parent.body ?? '',
-          onChanged: (v) => widget.controller.setBody(parent.id, v),
+        if (audio != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: VoiceNoteBar(
+              audio: audio,
+              itemId: parent.id,
+              accent: accent,
+            ),
+          ),
+        Expanded(
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (i) {
+              // Leaving the note → drop focus so it autosaves, keyboard hides.
+              if (i != 1) _noteFocus.unfocus();
+              setState(() => _page = i);
+            },
+            children: [
+              _listPage(items),
+              NotePage(
+                key: ValueKey('note_${parent.id}'),
+                focusNode: _noteFocus,
+                text: parent.body ?? '',
+                onChanged: (v) => widget.controller.setBody(parent.id, v),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -295,11 +326,16 @@ class _NotesViewState extends State<NotesView> {
           completedTasks: counts.completed,
           uncompletedTasks: counts.uncompleted,
           nestHighlight: nestHighlight,
-          reminderState: reminderBadgeState(widget.controller),
+          reminderState: reminderBadgeState(widget.controller.reminders),
           onReminderWarningTap: () =>
-              handleReminderWarningTap(context, widget.controller),
+              handleReminderWarningTap(context, widget.controller.reminders),
           onDragStarted: () => setState(() => _dragging = true),
           onDragEnded: () => setState(() => _dragging = false),
+          onContextMenu: () => _onItemMenu(item),
+          hasAudio: widget.controller.audio?.audioOf(item.id) != null,
+          isPlayingAudio: widget.controller.audio?.isPlaying(item.id) ?? false,
+          onPlayAudio: () => widget.controller.audio?.playFor(item.id),
+          audioPlayback: widget.controller.audio?.playbackStream,
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
             open();
@@ -396,7 +432,10 @@ class _NotesViewState extends State<NotesView> {
       ),
       body: DismissKeyboard(
         child: ListenableBuilder(
-          listenable: widget.controller,
+          listenable: Listenable.merge([
+            widget.controller,
+            widget.controller.audio,
+          ]),
           builder: (context, _) {
             final items = widget.controller.childrenOf(widget.parent?.id);
             if (isRoot) {

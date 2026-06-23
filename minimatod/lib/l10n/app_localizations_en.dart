@@ -238,4 +238,44 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get feedback => 'Feedback';
+
+  @override
+  String get reportBug => 'Report a bug';
+
+  @override
+  String get sendIdea => 'Send an idea';
+
+  @override
+  String get send => 'Send';
+
+  @override
+  String get feedbackEmailHint => 'Goes to our team by email.';
+
+  @override
+  String get bugReportHint =>
+      'What happened? Steps to reproduce help us fix it fast.';
+
+  @override
+  String get adviceHint => 'Your idea or suggestion to make Minimatod better…';
+
+  @override
+  String get voiceNotes => 'Voice notes';
+
+  @override
+  String get voiceNote => 'Voice note';
+
+  @override
+  String get recordVoiceNote => 'Record voice note';
+
+  @override
+  String get deleteVoiceNote => 'Delete voice note';
+
+  @override
+  String get recording => 'Recording…';
+
+  @override
+  String get micPermissionNeeded => 'Microphone access is needed to record.';
 }

@@ -237,4 +237,43 @@ class AppLocalizationsTr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get feedback => 'Geri bildirim';
+
+  @override
+  String get reportBug => 'Hata bildir';
+
+  @override
+  String get sendIdea => 'Fikir gönder';
+
+  @override
+  String get send => 'Gönder';
+
+  @override
+  String get feedbackEmailHint => 'E-posta ile bize ulaşır.';
+
+  @override
+  String get bugReportHint => 'Ne oldu? Adımları yazarsan hızlıca düzeltiriz.';
+
+  @override
+  String get adviceHint => 'Minimatod\'u daha iyi yapacak fikrin veya önerin…';
+
+  @override
+  String get voiceNotes => 'Sesli notlar';
+
+  @override
+  String get voiceNote => 'Sesli not';
+
+  @override
+  String get recordVoiceNote => 'Sesli not kaydet';
+
+  @override
+  String get deleteVoiceNote => 'Sesli notu sil';
+
+  @override
+  String get recording => 'Kaydediliyor…';
+
+  @override
+  String get micPermissionNeeded => 'Kayıt için mikrofon izni gerekli.';
 }

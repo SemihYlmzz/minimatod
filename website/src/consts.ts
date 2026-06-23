@@ -8,7 +8,7 @@ export const SITE = {
 
   // App + store links — replace the placeholders when listings go live.
   webApp: 'https://app.minimatod.com',
-  appStore: '#', // e.g. https://apps.apple.com/app/idXXXXXXXXX
+  appStore: 'https://apps.apple.com/app/minimatod/id6780888832',
   playStore: 'https://play.google.com/apps/testing/com.minimatod.app', // e.g. https://play.google.com/store/apps/details?id=com.minimatod.app
 
   // Contact — single mailbox handles support + privacy requests.

@@ -28,19 +28,19 @@ class _IntroAnimationState extends State<IntroAnimation>
   }
 
   Animation<double> _fade(double begin, double end) => CurvedAnimation(
-        parent: _c,
-        curve: Interval(begin, end, curve: Curves.easeOut),
-      );
+    parent: _c,
+    curve: Interval(begin, end, curve: Curves.easeOut),
+  );
 
   Widget _rise(Animation<double> a, Widget child) => FadeTransition(
-        opacity: a,
-        child: AnimatedBuilder(
-          animation: a,
-          builder: (_, c) =>
-              Transform.translate(offset: Offset(0, (1 - a.value) * 16), child: c),
-          child: child,
-        ),
-      );
+    opacity: a,
+    child: AnimatedBuilder(
+      animation: a,
+      builder: (_, c) =>
+          Transform.translate(offset: Offset(0, (1 - a.value) * 16), child: c),
+      child: child,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

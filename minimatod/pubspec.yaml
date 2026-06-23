@@ -2,7 +2,7 @@ name: minimatod
 description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 1.3.0+4
+version: 1.4.0+5
 
 environment:
   sdk: ^3.12.2
@@ -35,6 +35,10 @@ dependencies:
   path: ^1.9.1
   uuid: ^4.5.1
 
+  # sha-256 content hashing for out-of-row blob attachments (the BlobStore key +
+  # Attachment.contentHash). Tiny, first-party (dart.dev), no transitive bloat.
+  crypto: ^3.0.6
+
   # Native splash runtime API (preserve/remove the splash until data is ready).
   flutter_native_splash: ^2.4.6
 
@@ -45,6 +49,11 @@ dependencies:
   timezone: ^0.11.0
   flutter_timezone: ^5.1.0
   web: ^1.1.1
+
+  # Audio-recorded note attachments: capture from the microphone (record) and
+  # play it back (just_audio). Cross-platform — Android / iOS / web.
+  record: ^6.0.0
+  just_audio: ^0.9.40
 dev_dependencies:
   flutter_test:
     sdk: flutter

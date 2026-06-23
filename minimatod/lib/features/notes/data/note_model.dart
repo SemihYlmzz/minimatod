@@ -22,6 +22,7 @@ class Item {
     this.sortOrder = 0,
     this.archivedAt,
     this.deletedAt,
+    this.syncedAt,
   });
 
   /// Stable unique identifier (UUID).
@@ -73,9 +74,20 @@ class Item {
   /// removed) so future cloud sync can propagate deletions across devices.
   final DateTime? deletedAt;
 
+  /// When this row was last confirmed pushed to the server, or null if it has
+  /// never synced. The row is "dirty" (pending push) whenever this is null or
+  /// older than [updatedAt] — see [isDirty]. The server is never the authority
+  /// for this field; only the sync engine writes it.
+  final DateTime? syncedAt;
+
   bool get isArchived => archivedAt != null;
 
   bool get isDeleted => deletedAt != null;
+
+  /// Whether this row has local changes not yet pushed to the server. Because
+  /// every local mutation bumps [updatedAt], an edited row is automatically
+  /// dirty without any extra flag to set.
+  bool get isDirty => syncedAt == null || syncedAt!.isBefore(updatedAt);
 
   Item copyWith({
     String? id,
@@ -92,6 +104,7 @@ class Item {
     DateTime? updatedAt,
     Object? archivedAt = _sentinel,
     Object? deletedAt = _sentinel,
+    Object? syncedAt = _sentinel,
   }) {
     return Item(
       id: id ?? this.id,
@@ -114,6 +127,7 @@ class Item {
       deletedAt: deletedAt == _sentinel
           ? this.deletedAt
           : deletedAt as DateTime?,
+      syncedAt: syncedAt == _sentinel ? this.syncedAt : syncedAt as DateTime?,
     );
   }
 
@@ -134,6 +148,7 @@ class Item {
       'updated_at': updatedAt.toIso8601String(),
       'archived_at': archivedAt?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
+      'synced_at': syncedAt?.toIso8601String(),
     };
   }
 
@@ -160,6 +175,9 @@ class Item {
       deletedAt: map['deleted_at'] == null
           ? null
           : DateTime.parse(map['deleted_at']! as String),
+      syncedAt: map['synced_at'] == null
+          ? null
+          : DateTime.parse(map['synced_at']! as String),
     );
   }
 
@@ -179,7 +197,8 @@ class Item {
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt &&
         other.archivedAt == archivedAt &&
-        other.deletedAt == deletedAt;
+        other.deletedAt == deletedAt &&
+        other.syncedAt == syncedAt;
   }
 
   @override
@@ -198,6 +217,7 @@ class Item {
     updatedAt,
     archivedAt,
     deletedAt,
+    syncedAt,
   );
 }
 

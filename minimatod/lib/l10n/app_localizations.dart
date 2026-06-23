@@ -523,6 +523,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{task left} other{tasks left}}'**
   String tasksLeft(int count);
+
+  /// No description provided for @feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get feedback;
+
+  /// No description provided for @reportBug.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a bug'**
+  String get reportBug;
+
+  /// No description provided for @sendIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an idea'**
+  String get sendIdea;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
+
+  /// No description provided for @feedbackEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Goes to our team by email.'**
+  String get feedbackEmailHint;
+
+  /// No description provided for @bugReportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened? Steps to reproduce help us fix it fast.'**
+  String get bugReportHint;
+
+  /// No description provided for @adviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your idea or suggestion to make Minimatod better…'**
+  String get adviceHint;
+
+  /// No description provided for @voiceNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice notes'**
+  String get voiceNotes;
+
+  /// No description provided for @voiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note'**
+  String get voiceNote;
+
+  /// No description provided for @recordVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Record voice note'**
+  String get recordVoiceNote;
+
+  /// No description provided for @deleteVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete voice note'**
+  String get deleteVoiceNote;
+
+  /// No description provided for @recording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording…'**
+  String get recording;
+
+  /// No description provided for @micPermissionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access is needed to record.'**
+  String get micPermissionNeeded;
 }
 
 class _AppLocalizationsDelegate

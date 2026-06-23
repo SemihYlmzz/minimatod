@@ -1,11 +1,8 @@
-// Named params can't be private, so initializing formals don't apply to the
-// repository constructor; suppress that suggestion file-wide.
-// ignore_for_file: prefer_initializing_formals
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/database/app_database.dart';
 import 'note_model.dart';
+import 'sync/sync_store.dart';
 
 /// Storage abstraction for note/task [Item]s (Repository pattern).
 ///
@@ -28,6 +25,10 @@ abstract class NotesRepository {
 
   Future<void> update(Item item);
 
+  /// Persists several changed items in one transaction (e.g. a sibling
+  /// reorder). Atomic — either all land or none.
+  Future<void> updateMany(Iterable<Item> items);
+
   /// Archives [id] and its whole subtree (reversible — see [unarchive]).
   Future<void> archive(String id);
 
@@ -38,98 +39,17 @@ abstract class NotesRepository {
   Future<void> delete(String id);
 }
 
-/// sqflite-backed [NotesRepository] using an adjacency-list table.
-class SqfliteNotesRepository implements NotesRepository {
-  // Named params can't be private (`this._x`), so initializing formals don't
-  // apply here — assign in the initializer list instead.
-  SqfliteNotesRepository({
-    Database? database,
-    String databaseName = 'minimatod.db',
-  })  : _database = database,
-        _databaseName = databaseName;
+/// sqflite-backed [NotesRepository] using an adjacency-list table. Also serves
+/// as the local side of sync ([SyncLocalStore]) — the same table carries the
+/// per-row `synced_at` watermark.
+class SqfliteNotesRepository implements NotesRepository, SyncLocalStore {
+  SqfliteNotesRepository(this._appDb);
+
+  final AppDatabase _appDb;
 
   static const _table = 'items';
 
-  final String _databaseName;
-  Database? _database;
-
-  Future<Database> get _db async => _database ??= await _open();
-
-  /// Bump this and add a branch in [_migrate] whenever the schema changes.
-  static const _schemaVersion = 5;
-
-  Future<Database> _open() async {
-    // On web the database lives in IndexedDB and is opened by name only —
-    // getDatabasesPath() is not supported by the web factory. On native we
-    // resolve the platform databases directory.
-    final dbPath =
-        kIsWeb ? _databaseName : p.join(await getDatabasesPath(), _databaseName);
-    return openDatabase(
-      dbPath,
-      version: _schemaVersion,
-      // FK cascade is only a native backup — delete() already tombstones the
-      // whole subtree itself. The web worker can't run this PRAGMA, so skip it.
-      onConfigure: kIsWeb
-          ? null
-          : (db) => db.execute('PRAGMA foreign_keys = ON'),
-      onCreate: _createSchema,
-      onUpgrade: _migrate,
-    );
-  }
-
-  Future<void> _createSchema(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE $_table (
-        id TEXT PRIMARY KEY,
-        parent_id TEXT,
-        type TEXT NOT NULL,
-        content TEXT NOT NULL,
-        body TEXT,
-        icon TEXT,
-        color INTEGER,
-        reminder_at TEXT,
-        is_done INTEGER NOT NULL DEFAULT 0,
-        sort_order INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        archived_at TEXT,
-        deleted_at TEXT,
-        FOREIGN KEY (parent_id) REFERENCES $_table(id) ON DELETE CASCADE
-      )
-    ''');
-    await db.execute('CREATE INDEX idx_items_parent ON $_table(parent_id)');
-    await db.execute('CREATE INDEX idx_items_deleted ON $_table(deleted_at)');
-    await db.execute('CREATE INDEX idx_items_archived ON $_table(archived_at)');
-  }
-
-  /// Applies incremental migrations from [oldVersion] up to [newVersion].
-  /// Each version's change is its own `if` block — additive, never destructive.
-  Future<void> _migrate(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // v2: soft-delete tombstone column + supporting index.
-      await db.execute('ALTER TABLE $_table ADD COLUMN deleted_at TEXT');
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_items_deleted ON $_table(deleted_at)',
-      );
-    }
-    if (oldVersion < 3) {
-      // v3: long-form note body.
-      await db.execute('ALTER TABLE $_table ADD COLUMN body TEXT');
-    }
-    if (oldVersion < 4) {
-      // v4: per-item icon, accent colour, and reminder time.
-      await db.execute('ALTER TABLE $_table ADD COLUMN icon TEXT');
-      await db.execute('ALTER TABLE $_table ADD COLUMN color INTEGER');
-      await db.execute('ALTER TABLE $_table ADD COLUMN reminder_at TEXT');
-    }
-    if (oldVersion < 5) {
-      // v5: reversible archive marker + supporting index.
-      await db.execute('ALTER TABLE $_table ADD COLUMN archived_at TEXT');
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_items_archived ON $_table(archived_at)',
-      );
-    }
-  }
+  Future<Database> get _db => _appDb.db;
 
   @override
   Future<List<Item>> getAll() async {
@@ -197,6 +117,23 @@ class SqfliteNotesRepository implements NotesRepository {
       where: 'id = ?',
       whereArgs: [item.id],
     );
+  }
+
+  @override
+  Future<void> updateMany(Iterable<Item> items) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final item in items) {
+        batch.update(
+          _table,
+          item.toMap(),
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   @override
@@ -284,5 +221,65 @@ class SqfliteNotesRepository implements NotesRepository {
         );
       }
     });
+  }
+
+  // --- SyncLocalStore -------------------------------------------------------
+
+  @override
+  Future<List<Item>> getPendingPush() async {
+    final db = await _db;
+    // ISO-8601 strings compare lexicographically in the same order as the
+    // instants, so `synced_at < updated_at` is a valid "edited since push".
+    final rows = await db.query(
+      _table,
+      where: 'synced_at IS NULL OR synced_at < updated_at',
+    );
+    return rows.map(Item.fromMap).toList();
+  }
+
+  @override
+  Future<void> markPushed(Iterable<Item> items) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      for (final item in items) {
+        // Stamp the exact updatedAt we pushed — if the row changed again since,
+        // its newer updatedAt keeps it dirty so the later edit isn't dropped.
+        await txn.update(
+          _table,
+          {'synced_at': item.updatedAt.toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
+      }
+    });
+  }
+
+  @override
+  Future<bool> applyRemote(Item incoming) async {
+    final db = await _db;
+    final existing = await db.query(
+      _table,
+      columns: ['updated_at'],
+      where: 'id = ?',
+      whereArgs: [incoming.id],
+      limit: 1,
+    );
+
+    // Last-write-wins: skip when our copy is strictly newer. Ties favour the
+    // incoming row (idempotent re-apply).
+    if (existing.isNotEmpty) {
+      final localUpdated = DateTime.parse(
+        existing.first['updated_at']! as String,
+      );
+      if (localUpdated.isAfter(incoming.updatedAt)) return false;
+    }
+
+    // The applied row is in sync by definition, so stamp synced_at = updatedAt.
+    await db.insert(
+      _table,
+      incoming.copyWith(syncedAt: incoming.updatedAt).toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return true;
   }
 }

@@ -100,11 +100,12 @@ class _ArchiveViewState extends State<ArchiveView> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 children: [
-                  for (final item in roots) _ArchivedRow(
-                    item: item,
-                    onRestore: () => _restore(item),
-                    onDelete: () => _delete(item),
-                  ),
+                  for (final item in roots)
+                    _ArchivedRow(
+                      item: item,
+                      onRestore: () => _restore(item),
+                      onDelete: () => _delete(item),
+                    ),
                 ],
               ),
             ),

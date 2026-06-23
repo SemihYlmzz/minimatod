@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/format/created_at.dart';
+import '../../../attachments/presentation/voice_note_bar.dart';
 import '../../data/note_model.dart';
 import '../notes_controller.dart';
 import '../widgets/item_visuals.dart';
@@ -32,16 +33,8 @@ class NotePane extends StatelessWidget {
     // recedes in light mode and lifts in dark mode automatically.
     final paneColor = cs.surfaceContainerLow;
 
-    Item? item;
     final id = selectedId;
-    if (id != null) {
-      for (final i in controller.items) {
-        if (i.id == id) {
-          item = i;
-          break;
-        }
-      }
-    }
+    final item = id == null ? null : controller.itemById(id);
 
     if (item == null) {
       return Container(
@@ -109,7 +102,7 @@ class NotePane extends StatelessWidget {
                     if (onMenu != null)
                       IconButton(
                         icon: const Icon(Icons.more_horiz_rounded),
-                        onPressed: () => onMenu!(item!),
+                        onPressed: () => onMenu!(item),
                       ),
                   ],
                 ),
@@ -135,6 +128,14 @@ class NotePane extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (controller.audio != null) ...[
+                  const SizedBox(height: 12),
+                  VoiceNoteBar(
+                    audio: controller.audio!,
+                    itemId: item.id,
+                    accent: accent,
+                  ),
+                ],
                 const SizedBox(height: 8),
               ],
             ),

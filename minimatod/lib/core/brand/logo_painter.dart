@@ -40,7 +40,8 @@ class MinimatodLogoPainter extends CustomPainter {
   static const double botY = 72;
   static const double vertexX = 46; // checkmark low point
   static const double vertexY = 60;
-  static const double tickX = 68; // checkmark rising tip (pokes above shoulders)
+  static const double tickX =
+      68; // checkmark rising tip (pokes above shoulders)
   static const double tickY = 18;
 
   @override
@@ -72,9 +73,16 @@ class MinimatodLogoPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     // Outer legs of the M.
-    canvas.drawLine(const Offset(leftX, topY), const Offset(leftX, botY), paint);
     canvas.drawLine(
-        const Offset(rightX, topY), const Offset(rightX, botY), paint);
+      const Offset(leftX, topY),
+      const Offset(leftX, botY),
+      paint,
+    );
+    canvas.drawLine(
+      const Offset(rightX, topY),
+      const Offset(rightX, botY),
+      paint,
+    );
 
     // Inner valley = checkmark (descend into vertex, rise to the tick).
     final check = Path()

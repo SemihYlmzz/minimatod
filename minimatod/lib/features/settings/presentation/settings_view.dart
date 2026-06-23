@@ -7,6 +7,7 @@ import '../../../core/brand/logo_painter.dart';
 import '../../../core/settings/app_settings_controller.dart';
 import '../../../core/theme/app_themes.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../feedback/presentation/feedback_sheet.dart';
 import '../../notes/presentation/archive/archive_view.dart';
 import '../../notes/presentation/notes_controller.dart';
 
@@ -138,6 +139,21 @@ class SettingsView extends StatelessWidget {
                         builder: (_) => ArchiveView(controller: controller),
                       ),
                     ),
+                  ),
+
+                  const SizedBox(height: 8),
+                  _SectionLabel(l.feedback),
+                  _SettingsTile(
+                    icon: Icons.bug_report_outlined,
+                    label: l.reportBug,
+                    onTap: () =>
+                        showFeedbackSheet(context, kind: FeedbackKind.bug),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.lightbulb_outline_rounded,
+                    label: l.sendIdea,
+                    onTap: () =>
+                        showFeedbackSheet(context, kind: FeedbackKind.advice),
                   ),
 
                   const SizedBox(height: 8),

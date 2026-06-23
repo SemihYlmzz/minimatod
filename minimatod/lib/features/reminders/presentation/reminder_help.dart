@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-import '../../../../l10n/app_localizations.dart';
-import '../notes_controller.dart';
+import '../../../l10n/app_localizations.dart';
+import 'reminder_controller.dart';
 
 /// Delivery state of a reminder badge, derived from notification permission.
 enum ReminderBadgeState {
@@ -16,9 +16,10 @@ enum ReminderBadgeState {
   blocked,
 }
 
-ReminderBadgeState reminderBadgeState(NotesController controller) {
-  if (controller.remindersBlocked) return ReminderBadgeState.blocked;
-  if (controller.remindersAskable) return ReminderBadgeState.askable;
+ReminderBadgeState reminderBadgeState(ReminderController? reminders) {
+  if (reminders == null) return ReminderBadgeState.ok;
+  if (reminders.blocked) return ReminderBadgeState.blocked;
+  if (reminders.askable) return ReminderBadgeState.askable;
   return ReminderBadgeState.ok;
 }
 
@@ -26,10 +27,10 @@ ReminderBadgeState reminderBadgeState(NotesController controller) {
 /// blocked → show platform-appropriate instructions to re-enable.
 Future<void> handleReminderWarningTap(
   BuildContext context,
-  NotesController controller,
+  ReminderController? reminders,
 ) async {
-  if (controller.remindersAskable) {
-    await controller.requestReminderPermission();
+  if (reminders != null && reminders.askable) {
+    await reminders.requestPermission();
     return;
   }
   if (!context.mounted) return;

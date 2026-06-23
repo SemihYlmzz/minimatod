@@ -70,5 +70,18 @@
   "enableInstructionsWeb": "Tarayıcın bu site için bildirimleri engelledi. Adres çubuğunun solundaki sayfa bilgisi simgesine dokun, Bildirimler’i İzin Ver yap ve sayfayı yenile.",
   "enableInstructionsNative": "Bildirimler kapalı. Cihaz Ayarları’nı aç, Minimatod’u bul ve Bildirimler’e izin ver.",
   "remindersNeedPermission": "Hatırlatıcı henüz çalışmaz. İzin vermek için dokun.",
-  "tasksLeft": "{count, plural, other{görev kaldı}}"
+  "tasksLeft": "{count, plural, other{görev kaldı}}",
+  "feedback": "Geri bildirim",
+  "reportBug": "Hata bildir",
+  "sendIdea": "Fikir gönder",
+  "send": "Gönder",
+  "feedbackEmailHint": "E-posta ile bize ulaşır.",
+  "bugReportHint": "Ne oldu? Adımları yazarsan hızlıca düzeltiriz.",
+  "adviceHint": "Minimatod'u daha iyi yapacak fikrin veya önerin…",
+  "voiceNotes": "Sesli notlar",
+  "voiceNote": "Sesli not",
+  "recordVoiceNote": "Sesli not kaydet",
+  "deleteVoiceNote": "Sesli notu sil",
+  "recording": "Kaydediliyor…",
+  "micPermissionNeeded": "Kayıt için mikrofon izni gerekli."
 }

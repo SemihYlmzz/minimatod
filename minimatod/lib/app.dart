@@ -38,14 +38,18 @@ class _MinimatodAppState extends State<MinimatodApp>
     // The user may have changed notification permission in OS/browser settings
     // while away — re-check on resume so reminder badges self-correct.
     if (state == AppLifecycleState.resumed) {
-      widget.controller.refreshReminderPermission();
+      widget.controller.reminders?.refresh();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    final reminders = widget.controller.reminders;
+    final audio = widget.controller.audio;
     widget.controller.dispose();
+    reminders?.dispose();
+    audio?.dispose();
     widget.settings.dispose();
     super.dispose();
   }

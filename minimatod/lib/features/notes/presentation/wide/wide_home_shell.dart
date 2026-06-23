@@ -6,7 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../settings/presentation/settings_view.dart';
 import '../../data/note_model.dart';
 import '../archive/archive_view.dart';
-import '../create_item_sheet.dart';
+import '../composer/create_item_sheet.dart';
 import '../notes_controller.dart';
 import '../search/item_search_delegate.dart';
 import '../widgets/item_actions_sheet.dart';
@@ -67,7 +67,8 @@ class _WideHomeShellState extends State<WideHomeShell> {
   Future<void> _openCreate() async {
     final result = await showCreateItemSheet(
       context,
-      notifications: widget.controller.notifications,
+      notifications: widget.controller.reminders?.notifications,
+      audio: widget.controller.audio,
     );
     if (result == null) return;
     await widget.controller.addItem(
@@ -77,6 +78,7 @@ class _WideHomeShellState extends State<WideHomeShell> {
       color: result.color,
       reminderAt: result.reminderAt,
       parentId: _selectedId,
+      recording: result.audio,
     );
   }
 
@@ -114,7 +116,8 @@ class _WideHomeShellState extends State<WideHomeShell> {
         final result = await showCreateItemSheet(
           context,
           initial: live,
-          notifications: widget.controller.notifications,
+          notifications: widget.controller.reminders?.notifications,
+          audio: widget.controller.audio,
         );
         if (result == null) return;
         await widget.controller.updateItemMeta(
@@ -125,6 +128,12 @@ class _WideHomeShellState extends State<WideHomeShell> {
           color: result.color,
           reminderAt: result.reminderAt,
         );
+        final rec = result.audio;
+        if (rec != null) {
+          await widget.controller.audio?.attach(live.id, rec);
+        } else if (result.removeAudio) {
+          await widget.controller.audio?.remove(live.id);
+        }
       case ItemAction.archive:
         await widget.controller.archiveItem(live.id);
         _select(null);
@@ -156,7 +165,10 @@ class _WideHomeShellState extends State<WideHomeShell> {
       body: SafeArea(
         child: DismissKeyboard(
           child: ListenableBuilder(
-            listenable: widget.controller,
+            listenable: Listenable.merge([
+              widget.controller,
+              widget.controller.audio,
+            ]),
             builder: (context, _) {
               // Drop a stale selection if the item was deleted.
               final id = _selectedId;
@@ -195,6 +207,7 @@ class _WideHomeShellState extends State<WideHomeShell> {
                       onSelect: _select,
                       onClearSearch: _clearSearch,
                       onAdd: _openCreate,
+                      onItemMenu: _onItemMenu,
                     ),
                   ),
                   const VerticalDivider(width: 1, thickness: 1),

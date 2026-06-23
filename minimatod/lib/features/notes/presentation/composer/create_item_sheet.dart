@@ -2,20 +2,25 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/format/created_at.dart';
-import '../../../core/notifications/notification_service.dart';
-import '../../../l10n/app_localizations.dart';
-import '../data/note_model.dart';
-import 'widgets/item_visuals.dart';
+import '../../../../core/format/reminder_at.dart';
+import '../../../../core/notifications/notification_service.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../attachments/presentation/audio_controller.dart';
+import '../../../attachments/presentation/audio_widgets.dart';
+import '../../data/note_model.dart';
+import '../widgets/item_visuals.dart';
 
 /// Result of the create composer: the title, chosen item type, and the optional
-/// icon / accent colour / reminder extras.
+/// icon / accent colour / reminder extras. [audio] is a freshly-recorded clip to
+/// attach; [removeAudio] asks to delete the item's existing clip (edit only).
 typedef CreateItemResult = ({
   String content,
   ItemType type,
   String? icon,
   int? color,
   DateTime? reminderAt,
+  PendingRecording? audio,
+  bool removeAudio,
 });
 
 /// Presents the composer as a modal bottom sheet (phone + iPad). Pass [initial]
@@ -26,6 +31,7 @@ Future<CreateItemResult?> showCreateItemSheet(
   bool startAsNote = true,
   Item? initial,
   NotificationService? notifications,
+  AudioController? audio,
 }) {
   return showModalBottomSheet<CreateItemResult>(
     context: context,
@@ -39,6 +45,7 @@ Future<CreateItemResult?> showCreateItemSheet(
       startAsNote: startAsNote,
       initial: initial,
       notifications: notifications,
+      audio: audio,
     ),
   );
 }
@@ -53,6 +60,7 @@ class _CreateItemSheet extends StatefulWidget {
     required this.startAsNote,
     this.initial,
     this.notifications,
+    this.audio,
   });
 
   final bool startAsNote;
@@ -62,6 +70,9 @@ class _CreateItemSheet extends StatefulWidget {
 
   /// Used to prime/check notification permission when a reminder is set.
   final NotificationService? notifications;
+
+  /// Records a voice note attached to the item on submit. Null hides the mic.
+  final AudioController? audio;
 
   @override
   State<_CreateItemSheet> createState() => _CreateItemSheetState();
@@ -83,6 +94,36 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
   /// The open inline panel, or null when none is open (collapsed bottom).
   _BottomMode? _mode;
 
+  /// True while the reminder date/time dialogs are up, so the title regaining
+  /// focus as a dialog pops doesn't auto-close the reminder panel (which made it
+  /// feel like no reminder was set).
+  bool _pickingReminder = false;
+
+  /// Voice-note recording state for this composer session.
+  bool _recording = false;
+  PendingRecording? _pendingRecording;
+
+  /// Edit only: the user deleted the item's existing clip (applied on submit).
+  bool _removeExisting = false;
+
+  /// Set once the sheet submits, so dispose knows a staged pending clip was kept
+  /// (attached by the caller) rather than abandoned (its blob should be GC'd).
+  bool _submitted = false;
+
+  /// Whether a freshly-recorded clip is staged this session.
+  bool get _hasNewClip => _pendingRecording != null;
+
+  /// Whether the edited item still has its existing clip (no new take, not
+  /// deleted). Always false when creating.
+  bool get _hasExistingClip {
+    final id = widget.initial?.id;
+    if (id == null || _removeExisting || _hasNewClip) return false;
+    return widget.audio?.audioOf(id) != null;
+  }
+
+  /// Whether the composer currently holds a clip (new or existing).
+  bool get _hasClip => _hasNewClip || _hasExistingClip;
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +140,7 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
     _title.addListener(_onChanged);
     // Opening the keyboard (focusing the title) closes any open option panel.
     _titleFocus.addListener(() {
-      if (_titleFocus.hasFocus && _mode != null) {
+      if (_titleFocus.hasFocus && _mode != null && !_pickingReminder) {
         setState(() => _mode = null);
       }
     });
@@ -107,6 +148,10 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
 
   @override
   void dispose() {
+    // A clip recorded but never submitted (sheet dismissed) leaves an orphaned
+    // blob — discard it. Once submitted, the caller owns attaching it.
+    final pending = _pendingRecording;
+    if (pending != null && !_submitted) widget.audio?.discardPending(pending);
     _title.removeListener(_onChanged);
     _title.dispose();
     _titleFocus.dispose();
@@ -143,13 +188,89 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
     final content = _title.text.trim();
     if (content.isEmpty) return;
     HapticFeedback.mediumImpact();
+    _submitted = true;
     Navigator.of(context).pop((
       content: content,
       type: _isNote ? ItemType.note : ItemType.task,
       icon: _isNote ? _iconKey : null,
       color: _color,
       reminderAt: _reminder,
+      audio: _pendingRecording,
+      // A staged delete only matters when no new take replaces the clip.
+      removeAudio: _removeExisting && !_hasNewClip,
     ));
+  }
+
+  /// Records a voice note (or stops + keeps it). It attaches to the item on
+  /// submit. A new take replaces any earlier one from this session.
+  Future<void> _toggleRecord() async {
+    final audio = widget.audio;
+    if (audio == null) return;
+    HapticFeedback.selectionClick();
+    if (_recording) {
+      final old = _pendingRecording;
+      final rec = await audio.stopRecording();
+      // A re-take supersedes the previous staged clip — GC its orphaned blob.
+      if (rec != null && old != null && old.hash != rec.hash) {
+        await audio.discardPending(old);
+      }
+      if (mounted) {
+        setState(() {
+          _recording = false;
+          if (rec != null) _pendingRecording = rec;
+        });
+      }
+    } else {
+      final ok = await audio.startRecording();
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).micPermissionNeeded),
+            ),
+          );
+        }
+        return;
+      }
+      if (mounted) setState(() => _recording = true);
+    }
+  }
+
+  /// Plays the staged clip — the new take if present, else the item's existing
+  /// one (edit). Toggles off if it's already playing.
+  void _playClip() {
+    final audio = widget.audio;
+    if (audio == null) return;
+    final pending = _pendingRecording;
+    if (pending != null) {
+      audio.playPending(pending);
+    } else {
+      final id = widget.initial?.id;
+      if (id != null) audio.playFor(id);
+    }
+  }
+
+  /// Whether the staged clip is the one currently playing.
+  bool get _clipPlaying {
+    final audio = widget.audio;
+    if (audio == null) return false;
+    final pending = _pendingRecording;
+    if (pending != null) return audio.isPlayingPending(pending);
+    final id = widget.initial?.id;
+    return id != null && audio.isPlaying(id);
+  }
+
+  /// Removes the staged clip: discards a new take's blob, or (edit) stages the
+  /// existing clip for deletion on submit.
+  Future<void> _deleteClip() async {
+    HapticFeedback.selectionClick();
+    final pending = _pendingRecording;
+    if (pending != null) {
+      await widget.audio?.discardPending(pending);
+      if (mounted) setState(() => _pendingRecording = null);
+    } else if (mounted) {
+      setState(() => _removeExisting = true);
+    }
   }
 
   void _setReminderPreset(DateTime when) {
@@ -233,23 +354,34 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
 
   Future<void> _pickReminder() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _reminder ?? now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 10),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_reminder ?? now),
-    );
-    if (!mounted) return;
-    final t = time ?? const TimeOfDay(hour: 9, minute: 0);
-    setState(() {
-      _reminder = DateTime(date.year, date.month, date.day, t.hour, t.minute);
-    });
-    _onReminderSet();
+    // Keep the reminder panel open and the keyboard down across the date/time
+    // dialogs: each dialog pop momentarily refocuses the title, which would
+    // otherwise close the panel and pop the keyboard — making it feel like
+    // nothing was set.
+    _pickingReminder = true;
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: _reminder ?? now,
+        firstDate: DateTime(now.year, now.month, now.day),
+        lastDate: DateTime(now.year + 10),
+      );
+      if (date == null || !mounted) return;
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_reminder ?? now),
+      );
+      if (!mounted) return;
+      final t = time ?? const TimeOfDay(hour: 9, minute: 0);
+      setState(() {
+        _reminder = DateTime(date.year, date.month, date.day, t.hour, t.minute);
+        _mode = _BottomMode.reminder;
+      });
+      await _onReminderSet();
+    } finally {
+      if (mounted) FocusScope.of(context).unfocus();
+      _pickingReminder = false;
+    }
   }
 
   @override
@@ -380,7 +512,7 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
                           Icon(Icons.event_outlined, size: 11, color: _accent),
                           const SizedBox(width: 3),
                           Text(
-                            formatCreatedAt(
+                            formatReminderAt(
                               _reminder!,
                               Localizations.localeOf(context),
                             ),
@@ -432,6 +564,19 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
                       accent: _accent,
                       onTap: () => _toggleMode(_BottomMode.reminder),
                     ),
+                    if (widget.audio != null) ...[
+                      const SizedBox(width: 8),
+                      _ModeButton(
+                        icon: _recording
+                            ? Icons.stop_rounded
+                            : (_hasClip
+                                  ? Icons.mic_rounded
+                                  : Icons.mic_none_rounded),
+                        active: _recording || _hasClip,
+                        accent: _recording ? cs.error : _accent,
+                        onTap: _toggleRecord,
+                      ),
+                    ],
                     const Spacer(),
                     GestureDetector(
                       onTap: canAdd ? _submit : null,
@@ -458,6 +603,23 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
                     ),
                   ],
                 ),
+
+                // The staged voice note (new take, or the item's existing clip):
+                // play / delete it right here. Rebuilds on audio notifications so
+                // the play/stop icon tracks playback.
+                if (widget.audio != null && _hasClip)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: ListenableBuilder(
+                      listenable: widget.audio!,
+                      builder: (context, _) => _ClipChip(
+                        playing: _clipPlaying,
+                        accent: _accent,
+                        onPlay: _playClip,
+                        onDelete: _deleteClip,
+                      ),
+                    ),
+                  ),
 
                 // The expanded option panel. Dynamic height (fits its content),
                 // but premium-smooth: AnimatedSize eases the height to the
@@ -573,7 +735,10 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
                       label: Text(
                         _reminder == null
                             ? l.setReminder
-                            : _reminderLabel(context, _reminder!),
+                            : formatReminderAt(
+                                _reminder!,
+                                Localizations.localeOf(context),
+                              ),
                       ),
                     ),
                   ),
@@ -608,13 +773,6 @@ class _CreateItemSheetState extends State<_CreateItemSheet> {
           ),
         );
     }
-  }
-
-  String _reminderLabel(BuildContext context, DateTime dt) {
-    final ml = MaterialLocalizations.of(context);
-    final date = ml.formatMediumDate(dt);
-    final time = ml.formatTimeOfDay(TimeOfDay.fromDateTime(dt));
-    return '$date · $time';
   }
 
   /// Readable foreground for an accent fill (the palette colours are light).
@@ -698,6 +856,74 @@ class _RemindersBlockedNote extends StatelessWidget {
           ),
           if (hasAction)
             TextButton(onPressed: onAction, child: Text(actionLabel!)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The staged voice-note chip in the composer: a filled play/stop button, a
+/// label, and a delete. Same look as the detail [VoiceNoteBar]'s clip row.
+class _ClipChip extends StatelessWidget {
+  const _ClipChip({
+    required this.playing,
+    required this.accent,
+    required this.onPlay,
+    required this.onDelete,
+  });
+
+  final bool playing;
+  final Color accent;
+  final VoidCallback onPlay;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onPlay,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                playing ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                size: 22,
+                color: readableOnAccent(accent),
+              ),
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              l.voiceNote,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: l.deleteVoiceNote,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.delete_outline_rounded, size: 20, color: cs.error),
+            onPressed: onDelete,
+          ),
         ],
       ),
     );

@@ -85,5 +85,18 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+  "feedback": "Feedback",
+  "reportBug": "Report a bug",
+  "sendIdea": "Send an idea",
+  "send": "Send",
+  "feedbackEmailHint": "Goes to our team by email.",
+  "bugReportHint": "What happened? Steps to reproduce help us fix it fast.",
+  "adviceHint": "Your idea or suggestion to make Minimatod better…",
+  "voiceNotes": "Voice notes",
+  "voiceNote": "Voice note",
+  "recordVoiceNote": "Record voice note",
+  "deleteVoiceNote": "Delete voice note",
+  "recording": "Recording…",
+  "micPermissionNeeded": "Microphone access is needed to record."
 }

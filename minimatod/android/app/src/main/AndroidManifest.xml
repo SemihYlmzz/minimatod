@@ -1,8 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Reminder notifications (Android 13+ runtime prompt) and re-registering
-         scheduled reminders after a device reboot. -->
+    <!-- Reminder notifications.
+         POST_NOTIFICATIONS    = Android 13+ runtime prompt.
+         RECEIVE_BOOT_COMPLETED = re-schedule reminders after a reboot.
+         USE_EXACT_ALARM        = exact timing on Android 13+ (auto-granted to
+                                  reminder apps, no prompt).
+         SCHEDULE_EXACT_ALARM   = exact timing on Android 12 (auto-granted on
+                                  install). The app also falls back to inexact at
+                                  runtime if exact is denied, so reminders always
+                                  fire — and both can be dropped if Play objects.
+         VIBRATE                = buzz on delivery. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Voice-note attachments: record audio from the microphone. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Minimatod"
         android:name="${applicationName}"
@@ -34,6 +47,24 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- flutter_local_notifications: REQUIRED so scheduled reminders are
+             actually delivered (ScheduledNotificationReceiver) and re-scheduled
+             after a reboot (ScheduledNotificationBootReceiver). Without the first
+             one, scheduled notifications silently never fire. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/responsive/breakpoints.dart';
 import '../../../core/settings/app_settings_controller.dart';
 import 'notes_controller.dart';
-import 'notes_view.dart';
+import 'narrow/notes_view.dart';
 import 'wide/wide_home_shell.dart';
 
 /// Chooses the layout for the current width:

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/format/created_at.dart';
+import '../../../../core/format/reminder_at.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../attachments/presentation/audio_widgets.dart';
 import '../../data/note_model.dart';
+import '../../../reminders/presentation/reminder_help.dart';
 import 'item_visuals.dart';
-import 'reminder_help.dart';
 
 /// A flat, tappable row for one item. Tapping opens the item's own screen;
 /// long-press starts a drag (to nest or reorder — the drop target decides);
@@ -30,6 +32,11 @@ class ItemRow extends StatelessWidget {
     this.onReminderWarningTap,
     this.onDragStarted,
     this.onDragEnded,
+    this.onContextMenu,
+    this.hasAudio = false,
+    this.isPlayingAudio = false,
+    this.onPlayAudio,
+    this.audioPlayback,
   });
 
   final Item item;
@@ -61,6 +68,19 @@ class ItemRow extends StatelessWidget {
   /// turn the add button into a trash drop target.
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
+
+  /// Right-click / secondary-tap (web & desktop) → open the item actions menu.
+  final VoidCallback? onContextMenu;
+
+  /// Voice-note state: when [hasAudio], a note's leading icon becomes a play/stop
+  /// button (a task gets an inline one); [onPlayAudio] toggles playback.
+  final bool hasAudio;
+  final bool isPlayingAudio;
+  final VoidCallback? onPlayAudio;
+
+  /// Position/total of the playing clip — drives the in-row progress bar while
+  /// [isPlayingAudio]. Only the playing row subscribes, so it ticks in isolation.
+  final Stream<({Duration pos, Duration total})>? audioPlayback;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +124,15 @@ class ItemRow extends StatelessWidget {
               return false;
             },
             onDismissed: (_) => onDelete(),
-            child: _tile(context, nestHighlight),
+            child: GestureDetector(
+              // Right-click (web/desktop) opens the same actions menu as
+              // long-press / the ⋯ button. A secondary tap is distinct from the
+              // swipe and drag gestures, so they don't conflict.
+              onSecondaryTapDown: onContextMenu == null
+                  ? null
+                  : (_) => onContextMenu!(),
+              child: _tile(context, nestHighlight),
+            ),
           ),
         ),
       ),
@@ -137,6 +165,9 @@ class ItemRow extends StatelessWidget {
     final accent = item.color != null
         ? Color(item.color!)
         : (isTask ? cs.primary : cs.tertiary);
+    // A note with a voice clip: its leading square becomes a solid play button
+    // (filled accent + white glyph) so it reads as tappable, not decorative.
+    final audioButton = !isTask && hasAudio;
     // Notes can carry a custom glyph; tasks keep the checkbox affordance.
     final noteIcon = itemIconData(item.icon) ?? Icons.sticky_note_2_outlined;
     // Composite over the surface so the tile is opaque — otherwise the swipe
@@ -167,29 +198,52 @@ class ItemRow extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: isTask ? onToggleDone : null,
+                onTap: (!isTask && hasAudio)
+                    ? onPlayAudio
+                    : (isTask ? onToggleDone : null),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: isDone ? 0.18 : 0.12),
+                    color: audioButton
+                        ? accent
+                        : accent.withValues(alpha: isDone ? 0.18 : 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isTask
-                        ? (isDone
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked_rounded)
-                        : noteIcon,
-                    size: isTask ? 22 : 19,
-                    color: accent.withValues(
-                      alpha: isTask && !isDone ? 0.7 : 1,
-                    ),
+                    audioButton
+                        ? (isPlayingAudio
+                              ? Icons.stop_rounded
+                              : Icons.play_arrow_rounded)
+                        : (isTask
+                              ? (isDone
+                                    ? Icons.check_circle_rounded
+                                    : Icons.radio_button_unchecked_rounded)
+                              : noteIcon),
+                    size: audioButton ? 24 : (isTask ? 22 : 19),
+                    color: audioButton
+                        ? readableOnAccent(accent)
+                        : accent.withValues(alpha: isTask && !isDone ? 0.7 : 1),
                   ),
                 ),
               ),
               const SizedBox(width: 14),
+              // A task keeps its checkbox, so its voice note plays from here.
+              if (isTask && hasAudio) ...[
+                GestureDetector(
+                  onTap: onPlayAudio,
+                  behavior: HitTestBehavior.opaque,
+                  child: Icon(
+                    isPlayingAudio
+                        ? Icons.stop_circle_rounded
+                        : Icons.play_circle_rounded,
+                    size: 24,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               // Title, with the task progress (1/12) as a quiet subtitle.
               Expanded(
                 child: Column(
@@ -210,7 +264,12 @@ class ItemRow extends StatelessWidget {
                         decoration: isDone ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    if (uncompletedTasks > 0) ...[
+                    // While playing, the row becomes a mini-player: a progress
+                    // bar + time slides in (and the task count steps aside).
+                    if (isPlayingAudio && audioPlayback != null) ...[
+                      const SizedBox(height: 7),
+                      AudioProgressBar(stream: audioPlayback!, accent: accent),
+                    ] else if (uncompletedTasks > 0) ...[
                       const SizedBox(height: 3),
                       Text.rich(
                         TextSpan(
@@ -276,7 +335,7 @@ class ItemRow extends StatelessWidget {
   Widget _reminderBadge(BuildContext context, Color accent) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final time = formatCreatedAt(
+    final time = formatReminderAt(
       item.reminderAt!,
       Localizations.localeOf(context),
     );

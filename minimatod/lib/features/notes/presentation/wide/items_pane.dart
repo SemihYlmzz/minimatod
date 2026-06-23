@@ -9,7 +9,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/item_actions_sheet.dart';
 import '../widgets/item_row.dart';
 import '../widgets/path_title.dart';
-import '../widgets/reminder_help.dart';
+import '../../../reminders/presentation/reminder_help.dart';
 import '../widgets/reorderable_item.dart';
 import '../widgets/section_divider.dart';
 
@@ -26,6 +26,7 @@ class ItemsPane extends StatefulWidget {
     required this.onSelect,
     required this.onClearSearch,
     required this.onAdd,
+    required this.onItemMenu,
   });
 
   final NotesController controller;
@@ -34,6 +35,10 @@ class ItemsPane extends StatefulWidget {
   final ValueChanged<String?> onSelect;
   final VoidCallback onClearSearch;
   final VoidCallback onAdd;
+
+  /// Opens an item's actions menu (edit / archive / delete) — wired to the shell
+  /// handler, so right-click shares it with the note-pane ⋯ button.
+  final ValueChanged<Item> onItemMenu;
 
   @override
   State<ItemsPane> createState() => _ItemsPaneState();
@@ -174,13 +179,18 @@ class _ItemsPaneState extends State<ItemsPane> {
       completedTasks: counts.completed,
       uncompletedTasks: counts.uncompleted,
       nestHighlight: nestHighlight,
-      reminderState: reminderBadgeState(_controller),
+      reminderState: reminderBadgeState(_controller.reminders),
       onReminderWarningTap: () =>
-          handleReminderWarningTap(context, _controller),
+          handleReminderWarningTap(context, _controller.reminders),
       onDragStarted: () => setState(() => _dragging = true),
       onDragEnded: () => setState(() => _dragging = false),
       onTap: () => widget.onSelect(item.id),
       onToggleDone: () => _controller.toggleDone(item),
+      onContextMenu: () => widget.onItemMenu(item),
+      hasAudio: _controller.audio?.audioOf(item.id) != null,
+      isPlayingAudio: _controller.audio?.isPlaying(item.id) ?? false,
+      onPlayAudio: () => _controller.audio?.playFor(item.id),
+      audioPlayback: _controller.audio?.playbackStream,
       onRename: () async {
         final name = await showRenameDialog(context, item.content);
         if (name != null && name.isNotEmpty) {

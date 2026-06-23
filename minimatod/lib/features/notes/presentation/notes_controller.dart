@@ -1,108 +1,114 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/notifications/notification_service.dart';
+import '../../attachments/presentation/audio_controller.dart';
+import '../../reminders/presentation/reminder_controller.dart';
 import '../data/note_model.dart';
+import '../data/note_tree.dart';
 import '../data/notes_repository.dart';
 
 /// Holds the note/task tree in memory and mediates all changes through the
 /// [NotesRepository]. UI listens via [ChangeNotifier].
+///
+/// In-memory model: [_byId] is the single source of truth for the active board
+/// (archived/deleted rows live only in storage). Mutations update [_byId]
+/// directly and persist the one changed row — they do **not** re-read the whole
+/// table, so a tap costs O(1) IO instead of reloading and re-parsing everything.
+///
+/// Read-side tree algorithms (child ordering, descendant counts, ancestry,
+/// cycle detection) live in the pure [NoteTree]. The controller memoizes one in
+/// [_tree], rebuilt lazily only when [_generation] advances — so a list render
+/// no longer rebuilds an index per row. Full reloads ([load]) are reserved for
+/// startup, bringing rows back from the archive, and (later) applying a server
+/// sync.
 class NotesController extends ChangeNotifier {
-  NotesController(this._repository, {Uuid? uuid, this.notifications})
+  NotesController(this._repository, {Uuid? uuid, this.reminders, this.audio})
     : _uuid = uuid ?? const Uuid() {
-    // Update reminder badges live when permission changes (web).
-    notifications?.watchPermissionChanges(refreshReminderPermission);
+    // Reflect reminder-permission badge changes in the notes UI by re-emitting
+    // when the reminder controller notifies. (Permission changes are rare, so
+    // the extra rebuild is negligible.)
+    reminders?.addListener(notifyListeners);
   }
 
   final NotesRepository _repository;
   final Uuid _uuid;
 
-  /// Optional reminder scheduler. Null in tests / when notifications are off.
-  final NotificationService? notifications;
+  /// Reminder scheduling + notification-permission state, in its own controller.
+  /// Null in tests / when notifications are off. Read by the badge UI and the
+  /// composer via the notes controller they already hold.
+  final ReminderController? reminders;
 
-  List<Item> _items = const [];
+  /// Voice-note recording/playback, in its own controller. Null in tests. Held
+  /// here so the note detail can reach it via the notes controller it has.
+  final AudioController? audio;
+
+  /// Active items by id — the in-memory source of truth.
+  final Map<String, Item> _byId = {};
   bool _isLoading = false;
 
-  /// Last-known notification permission: granted / denied / default /
-  /// unsupported / unknown. Drives the "reminder won't fire" warnings.
-  String _reminderPermission = 'unknown';
+  /// Bumped on every change to [_byId]; the [_tree] snapshot rebuilds when it
+  /// notices its generation is stale.
+  int _generation = 0;
+  int _cacheGeneration = -1;
+  NoteTree _treeCache = NoteTree.empty();
 
-  /// Reminder set but hard-blocked — won't fire and can't be re-prompted (user
-  /// must change OS/browser settings). Shows the red badge.
-  bool get remindersBlocked =>
-      notifications != null &&
-      (_reminderPermission == 'denied' || _reminderPermission == 'unsupported');
+  // --- in-memory store helpers ---------------------------------------------
 
-  /// Reminder set but permission was never granted yet and can still be asked.
-  /// Shows the amber "tap to allow" badge.
-  bool get remindersAskable =>
-      notifications != null && _reminderPermission == 'default';
-
-  /// Refreshes the cached permission from the platform. Notifies on change.
-  Future<void> refreshReminderPermission() async {
-    final n = notifications;
-    if (n == null) return;
-    final status = await n.currentStatus();
-    if (status != _reminderPermission) {
-      _reminderPermission = status;
-      notifyListeners();
+  /// An indexed [NoteTree] snapshot of the active board, rebuilt once per
+  /// [_generation] then reused for all read queries.
+  NoteTree get _tree {
+    if (_cacheGeneration != _generation) {
+      _treeCache = NoteTree(_byId.values);
+      _cacheGeneration = _generation;
     }
+    return _treeCache;
   }
 
-  /// Prompts for notification permission (from a user gesture) and refreshes.
-  Future<void> requestReminderPermission() async {
-    final n = notifications;
-    if (n == null) return;
-    await n.requestPermission();
-    await refreshReminderPermission();
+  /// Inserts/replaces one item in the in-memory store and invalidates caches.
+  void _put(Item item) {
+    _byId[item.id] = item;
+    _generation++;
   }
 
-  /// Flat list of every item, unordered.
-  List<Item> get items => List.unmodifiable(_items);
+  /// Removes a set of ids (an item + its subtree) and invalidates caches.
+  void _removeAll(Iterable<String> ids) {
+    for (final id in ids) {
+      _byId.remove(id);
+    }
+    _generation++;
+  }
+
+  // --- queries --------------------------------------------------------------
+
+  /// Flat list of every active item, unordered.
+  List<Item> get items => List.unmodifiable(_byId.values);
+
+  /// The active item with [id], or null. O(1) — reads the in-memory store
+  /// directly, so detail panes can resolve their selection without scanning.
+  Item? itemById(String id) => _byId[id];
 
   /// Direct children of [parentId] (pass null for root level), ordered newest
   /// first by `sortOrder` then `createdAt`.
-  List<Item> childrenOf(String? parentId) {
-    return _items.where((i) => i.parentId == parentId).toList()..sort((a, b) {
-      final byOrder = b.sortOrder.compareTo(a.sortOrder);
-      return byOrder != 0 ? byOrder : b.createdAt.compareTo(a.createdAt);
-    });
-  }
+  List<Item> childrenOf(String? parentId) =>
+      List.unmodifiable(_tree.children(parentId));
 
   /// Completed / uncompleted counts of all descendant **tasks** of [parentId]
   /// (recursively, at any depth). Notes are never counted.
-  ({int completed, int uncompleted}) descendantTaskCounts(String? parentId) {
-    final byParent = <String?, List<Item>>{};
-    for (final item in _items) {
-      byParent.putIfAbsent(item.parentId, () => []).add(item);
-    }
-
-    var completed = 0;
-    var uncompleted = 0;
-    void visit(String? pid) {
-      for (final child in byParent[pid] ?? const <Item>[]) {
-        if (child.type == ItemType.task) {
-          if (child.isDone) {
-            completed++;
-          } else {
-            uncompleted++;
-          }
-        }
-        visit(child.id);
-      }
-    }
-
-    visit(parentId);
-    return (completed: completed, uncompleted: uncompleted);
-  }
+  ({int completed, int uncompleted}) descendantTaskCounts(String? parentId) =>
+      _tree.descendantTaskCounts(parentId);
 
   bool get isLoading => _isLoading;
 
-  /// Loads all items from storage.
+  /// Loads (or reloads) the whole active board from storage. Used at startup,
+  /// after restoring from the archive, and — in the future — to apply a sync.
   Future<void> load() async {
     _isLoading = true;
     notifyListeners();
-    _items = await _repository.getAll();
+    final all = await _repository.getAll();
+    _byId
+      ..clear()
+      ..addEntries(all.map((i) => MapEntry(i.id, i)));
+    _generation++;
     _isLoading = false;
     notifyListeners();
   }
@@ -117,6 +123,7 @@ class NotesController extends ChangeNotifier {
     String? icon,
     int? color,
     DateTime? reminderAt,
+    PendingRecording? recording,
   }) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty) return;
@@ -137,9 +144,10 @@ class NotesController extends ChangeNotifier {
       updatedAt: now,
     );
     await _repository.add(item);
-    _syncReminder(item);
-    await load();
-    await refreshReminderPermission();
+    _put(item);
+    notifyListeners();
+    await _syncReminder(item);
+    if (recording != null) await audio?.attach(item.id, recording);
   }
 
   /// Flips the completion state of a task. Completing a task cancels its
@@ -150,26 +158,28 @@ class NotesController extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     await _repository.update(updated);
-    if (updated.isDone) {
-      notifications?.cancel(updated.id);
-    } else {
-      _syncReminder(updated);
-    }
-    await load();
+    _put(updated);
+    notifyListeners();
+    // _syncReminder cancels when the task is now done, schedules when undone.
+    await _syncReminder(updated);
   }
 
   /// Saves the long-form note [body] for the item with [id]. Looks up the live
   /// item so a stale snapshot can't clobber other fields. No-op if unchanged or
   /// the item is gone.
+  ///
+  /// Deliberately does **not** notify listeners: the body isn't shown in any
+  /// list, and the open editor owns its own text (and re-reads via [itemById]
+  /// on its next rebuild). Notifying here would rebuild the whole 3-pane wide
+  /// layout — re-running the list's task counts — on every ~600ms autosave
+  /// while typing. The body isn't tree-indexed, so there's no generation bump.
   Future<void> setBody(String id, String body) async {
-    final index = _items.indexWhere((i) => i.id == id);
-    if (index == -1) return;
-    final item = _items[index];
+    final item = _byId[id];
+    if (item == null) return;
     if ((item.body ?? '') == body) return;
-    await _repository.update(
-      item.copyWith(body: body, updatedAt: DateTime.now()),
-    );
-    await load();
+    final updated = item.copyWith(body: body, updatedAt: DateTime.now());
+    await _repository.update(updated);
+    _byId[id] = updated;
   }
 
   /// Applies an edit from the composer sheet: title, type, and the icon / color
@@ -195,52 +205,56 @@ class NotesController extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     await _repository.update(updated);
-    _syncReminder(updated);
-    await load();
-    await refreshReminderPermission();
+    _put(updated);
+    notifyListeners();
+    await _syncReminder(updated);
   }
 
   /// Switches an item between note and task. Resets completion (a fresh task
   /// starts not-done; notes have no completion).
   Future<void> convertType(Item item) async {
     final newType = item.type == ItemType.note ? ItemType.task : ItemType.note;
-    await _repository.update(
-      item.copyWith(type: newType, isDone: false, updatedAt: DateTime.now()),
+    final updated = item.copyWith(
+      type: newType,
+      isDone: false,
+      updatedAt: DateTime.now(),
     );
-    await load();
+    await _repository.update(updated);
+    _put(updated);
+    notifyListeners();
   }
 
   /// Edits the text content of an existing item.
   Future<void> editContent(Item item, String content) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty || trimmed == item.content) return;
-    await _repository.update(
-      item.copyWith(content: trimmed, updatedAt: DateTime.now()),
-    );
-    await load();
+    final updated = item.copyWith(content: trimmed, updatedAt: DateTime.now());
+    await _repository.update(updated);
+    _put(updated);
+    notifyListeners();
   }
 
   /// Archives an item and its entire subtree, hiding it from the active board
   /// (restorable later from the Archive screen). Cancels any reminders so an
   /// archived item never pings.
   Future<void> archiveItem(String id) async {
-    final n = notifications;
-    if (n != null) {
-      for (final subId in _subtreeIds(id)) {
-        n.cancel(subId);
-      }
+    final ids = _subtreeIds(id);
+    for (final subId in ids) {
+      reminders?.cancel(subId);
     }
     await _repository.archive(id);
-    await load();
+    _removeAll(ids);
+    notifyListeners();
   }
 
   /// Restores an archived item (and its archived subtree) back onto the board,
-  /// re-arming any future reminders it carried.
+  /// re-arming any future reminders it carried. The restored rows live outside
+  /// [_byId], so this reloads to bring them back in.
   Future<void> unarchiveItem(String id) async {
     await _repository.unarchive(id);
     await load();
-    await rescheduleAll();
-    await refreshReminderPermission();
+    await rescheduleReminders();
+    await reminders?.refresh();
   }
 
   /// The archived items (newest first), loaded straight from storage. Archived
@@ -250,94 +264,59 @@ class NotesController extends ChangeNotifier {
 
   /// Deletes an item and its entire subtree.
   Future<void> deleteItem(String id) async {
-    final n = notifications;
-    if (n != null) {
-      for (final subId in _subtreeIds(id)) {
-        n.cancel(subId);
-      }
+    final ids = _subtreeIds(id);
+    for (final subId in ids) {
+      reminders?.cancel(subId);
     }
     await _repository.delete(id);
-    await load();
+    _removeAll(ids);
+    notifyListeners();
   }
 
-  /// Schedules or cancels [item]'s reminder to match its current state.
-  void _syncReminder(Item item) {
-    final n = notifications;
-    if (n == null) return;
-    final reminder = item.reminderAt;
+  /// [id] plus all of its descendant ids (for cancelling/removing a subtree).
+  List<String> _subtreeIds(String id) => _tree.subtreeIds(id);
+
+  /// Arms or cancels [item]'s reminder to match its current state — a future
+  /// time on an active item schedules; a completed task or cleared time cancels.
+  /// The Item→reminder rule lives here (a notes concern); [reminders] just runs
+  /// the scheduling, knowing nothing about items.
+  Future<void> _syncReminder(Item item) async {
+    final r = reminders;
+    if (r == null) return;
+    final when = item.reminderAt;
     final active = item.type != ItemType.task || !item.isDone;
-    if (reminder != null && active) {
-      n.schedule(itemId: item.id, title: item.content, when: reminder);
+    if (when != null && active) {
+      await r.schedule(id: item.id, title: item.content, when: when);
     } else {
-      n.cancel(item.id);
+      r.cancel(item.id);
+      await r.refresh();
     }
   }
 
-  /// [id] plus all of its descendant ids (for cancelling a deleted subtree).
-  List<String> _subtreeIds(String id) {
-    final byParent = <String?, List<Item>>{};
-    for (final item in _items) {
-      byParent.putIfAbsent(item.parentId, () => []).add(item);
-    }
-    final ids = <String>[id];
-    final queue = <String>[id];
-    while (queue.isNotEmpty) {
-      final parent = queue.removeAt(0);
-      for (final child in byParent[parent] ?? const <Item>[]) {
-        ids.add(child.id);
-        queue.add(child.id);
-      }
-    }
-    return ids;
-  }
-
-  /// Re-arms reminders for all future, still-active items. Called at startup so
-  /// web timers (which don't survive a reload) come back, and as a safety net
-  /// on native. No-op without a [notifications] service.
-  Future<void> rescheduleAll() async {
-    final n = notifications;
-    if (n == null) return;
+  /// Re-arms reminders for every future, still-active item. Called at startup so
+  /// web timers (which don't survive a reload) come back, and after an archive
+  /// restore.
+  Future<void> rescheduleReminders() async {
+    final r = reminders;
+    if (r == null) return;
     final now = DateTime.now();
-    for (final item in _items) {
-      final reminder = item.reminderAt;
+    for (final item in _byId.values) {
+      final when = item.reminderAt;
       final active = item.type != ItemType.task || !item.isDone;
-      if (reminder != null && active && reminder.isAfter(now)) {
-        await n.schedule(itemId: item.id, title: item.content, when: reminder);
+      if (when != null && active && when.isAfter(now)) {
+        await r.schedule(id: item.id, title: item.content, when: when);
       }
     }
   }
 
   /// The ancestor chain from the root down to (and including) [id], ordered
   /// root → … → item. Returns an empty list if [id] is unknown.
-  List<Item> pathTo(String id) {
-    final byId = {for (final item in _items) item.id: item};
-    final chain = <Item>[];
-    var current = byId[id];
-    while (current != null) {
-      chain.add(current);
-      current = current.parentId == null ? null : byId[current.parentId];
-    }
-    return chain.reversed.toList();
-  }
+  List<Item> pathTo(String id) => _tree.pathTo(id);
 
   /// Whether [candidateId] is [ofId] itself or any of its descendants. Used to
   /// reject re-parenting an item into its own subtree (which would form a cycle).
-  bool isDescendant(String candidateId, String ofId) {
-    if (candidateId == ofId) return true;
-    final byParent = <String?, List<Item>>{};
-    for (final item in _items) {
-      byParent.putIfAbsent(item.parentId, () => []).add(item);
-    }
-    final queue = <String>[ofId];
-    while (queue.isNotEmpty) {
-      final parent = queue.removeAt(0);
-      for (final child in byParent[parent] ?? const <Item>[]) {
-        if (child.id == candidateId) return true;
-        queue.add(child.id);
-      }
-    }
-    return false;
-  }
+  bool isDescendant(String candidateId, String ofId) =>
+      _tree.isDescendant(candidateId, ofId);
 
   /// Moves [item] (and its subtree) under [newParentId], placing it at the top
   /// of the new level. No-op if it would create a cycle or is already there.
@@ -345,41 +324,47 @@ class NotesController extends ChangeNotifier {
     if (newParentId == item.id) return;
     if (newParentId == item.parentId) return;
     if (newParentId != null && isDescendant(newParentId, item.id)) return;
-    await _repository.update(
-      item.copyWith(
-        parentId: newParentId,
-        sortOrder: _nextSortOrder(newParentId),
-        updatedAt: DateTime.now(),
-      ),
+    final updated = item.copyWith(
+      parentId: newParentId,
+      sortOrder: _nextSortOrder(newParentId),
+      updatedAt: DateTime.now(),
     );
-    await load();
+    await _repository.update(updated);
+    _put(updated);
+    notifyListeners();
   }
 
   /// Persists a new sibling order. [orderedIdsTopToBottom] is the desired
   /// top→bottom order of one group; the top gets the highest `sortOrder` so it
   /// surfaces first under the `sortOrder` DESC sort in [childrenOf].
   Future<void> reorderGroup(List<String> orderedIdsTopToBottom) async {
-    final byId = {for (final item in _items) item.id: item};
     final n = orderedIdsTopToBottom.length;
     final now = DateTime.now();
-    var changed = false;
+    final changed = <Item>[];
     for (var i = 0; i < n; i++) {
-      final item = byId[orderedIdsTopToBottom[i]];
+      final item = _byId[orderedIdsTopToBottom[i]];
       if (item == null) continue;
       final newSort = n - 1 - i;
       if (item.sortOrder != newSort) {
-        await _repository.update(
-          item.copyWith(sortOrder: newSort, updatedAt: now),
-        );
-        changed = true;
+        changed.add(item.copyWith(sortOrder: newSort, updatedAt: now));
       }
     }
-    if (changed) await load();
+    if (changed.isEmpty) return;
+    // One transaction instead of N awaited writes — atomic, far fewer fsyncs,
+    // and a single rebuild.
+    await _repository.updateMany(changed);
+    for (final item in changed) {
+      _byId[item.id] = item;
+    }
+    _generation++;
+    notifyListeners();
   }
 
-  int _nextSortOrder(String? parentId) {
-    final siblings = _items.where((i) => i.parentId == parentId);
-    if (siblings.isEmpty) return 0;
-    return siblings.map((i) => i.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
+  int _nextSortOrder(String? parentId) => _tree.nextSortOrder(parentId);
+
+  @override
+  void dispose() {
+    reminders?.removeListener(notifyListeners);
+    super.dispose();
   }
 }

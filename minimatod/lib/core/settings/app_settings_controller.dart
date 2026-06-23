@@ -30,10 +30,10 @@ class AppSettingsController extends ChangeNotifier {
 
   /// The forced app locale, or null to follow the system.
   Locale? get locale => switch (_language) {
-        LanguageChoice.system => null,
-        LanguageChoice.en => const Locale('en'),
-        LanguageChoice.tr => const Locale('tr'),
-      };
+    LanguageChoice.system => null,
+    LanguageChoice.en => const Locale('en'),
+    LanguageChoice.tr => const Locale('tr'),
+  };
 
   /// Reads persisted values. Defaults: dark theme, system language.
   void load() {
