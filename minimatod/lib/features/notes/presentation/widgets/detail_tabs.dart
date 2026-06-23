@@ -74,15 +74,21 @@ class DetailTabs extends StatelessWidget implements PreferredSizeWidget {
                               child: Center(
                                 child: AnimatedDefaultTextStyle(
                                   duration: const Duration(milliseconds: 200),
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: i == index
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    color: i == index
-                                        ? cs.onSurface
-                                        : cs.onSurface.withValues(alpha: 0.5),
-                                  ),
+                                  // Derive from the inherited style so the
+                                  // platform/theme font carries through (rather
+                                  // than a bare TextStyle that drops the family).
+                                  style: DefaultTextStyle.of(context).style
+                                      .copyWith(
+                                        fontSize: 13.5,
+                                        fontWeight: i == index
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: i == index
+                                            ? cs.onSurface
+                                            : cs.onSurface.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                      ),
                                   child: Text(labels[i]),
                                 ),
                               ),

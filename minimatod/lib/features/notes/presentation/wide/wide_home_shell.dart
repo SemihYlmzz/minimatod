@@ -25,10 +25,15 @@ class WideHomeShell extends StatefulWidget {
     super.key,
     required this.controller,
     required this.settings,
+    this.initialSelectedId,
   });
 
   final NotesController controller;
   final AppSettingsController settings;
+
+  /// The item selected when the shell first builds (null = Home). Lets a caller
+  /// open straight to an item — used for deep-linking and deterministic capture.
+  final String? initialSelectedId;
 
   @override
   State<WideHomeShell> createState() => _WideHomeShellState();
@@ -36,6 +41,12 @@ class WideHomeShell extends StatefulWidget {
 
 class _WideHomeShellState extends State<WideHomeShell> {
   String? _selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedId = widget.initialSelectedId;
+  }
   bool _sidebarCollapsed = false;
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
