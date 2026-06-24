@@ -2,16 +2,15 @@
     <!-- Reminder notifications.
          POST_NOTIFICATIONS    = Android 13+ runtime prompt.
          RECEIVE_BOOT_COMPLETED = re-schedule reminders after a reboot.
-         USE_EXACT_ALARM        = exact timing on Android 13+ (auto-granted to
-                                  reminder apps, no prompt).
-         SCHEDULE_EXACT_ALARM   = exact timing on Android 12 (auto-granted on
-                                  install). The app also falls back to inexact at
-                                  runtime if exact is denied, so reminders always
-                                  fire — and both can be dropped if Play objects.
+         SCHEDULE_EXACT_ALARM   = exact reminder timing (user-grantable on
+                                  Android 13+ via "Alarms & reminders"). The app
+                                  requests it and falls back to inexact if denied,
+                                  so reminders always fire. USE_EXACT_ALARM is
+                                  deliberately NOT used — Google Play restricts it
+                                  to alarm-clock / calendar apps, which we aren't.
          VIBRATE                = buzz on delivery. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Voice-note attachments: record audio from the microphone. -->
